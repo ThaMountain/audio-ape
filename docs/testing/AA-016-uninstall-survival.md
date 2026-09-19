@@ -54,6 +54,12 @@ The orchestrator executes this sequence on the connected Galaxy S25 Ultra and re
 output; UI picker re-selection is a single human tap the app prompts for (headless automation
 cannot drive the system folder picker), everything else is verified by adb.
 
+**Packaged-artifact verification (besides the source-tree contract test):** the merged manifest of
+the built APK is checked separately with aapt (`aapt dump xmltree app-debug.apk AndroidManifest.xml`
+→ `android:allowBackup="false"` present, and the packaged `@xml/backup_rules` /
+`@xml/data_extraction_rules` resolve), so the test locks the source files while the artifact-level
+check is part of the device/CI evidence.
+
 ## Result of the run (orchestrator, 2026-09-19, Galaxy S25 Ultra / Android 16)
 - [x] Step 1–2 (marker present; app package installed — `run-as` resolves the package)
 - [x] Step 3–4 (files survive uninstall — `uninstall Success`, marker still listed in Documents)
