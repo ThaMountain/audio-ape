@@ -4,7 +4,7 @@ All product decisions from the conversation are recorded in the master spec. The
 
 - [x] Canonical new GitHub repository and app/package identifier confirmed — repo `ThaMountain/audio-ape` (public; owner decided everything open source), package `com.audioape.player` (ADR-0001).
 - [ ] Source or newly isolated ape-with-headphones brand icon approved, ownership/licensing checked.
-- [ ] Actual physical Android test phone model/OS recorded; minSdk/targetSdk resolved.
+- [x] Actual physical Android test phone model/OS recorded; minSdk/targetSdk resolved — Samsung Galaxy S25 Ultra (SM-S931U), arm64, Android 16, SDK/API 36 = compile/targetSdk 36 (matches device). Wireless adb connected 2026-09-19.
 - [ ] Document-tree user-accessible folder first-run picker tested on target phone; user agrees UI wording.
 - [ ] Five-tab navigation vs compact alternative approved after 320dp test; never add Profile/login.
 - [ ] First provider meets confirmed-audiobook-only requirement and legally permitted artwork/usage; gaps documented.
