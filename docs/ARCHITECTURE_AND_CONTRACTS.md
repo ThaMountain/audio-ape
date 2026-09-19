@@ -6,6 +6,7 @@ See `../AUDIO_APE_MASTER_SPEC.md` for behavior and `../AGENTS.md` for constraint
 
 ```text
 Compose / ViewModels -> application use cases -> pure domain interfaces
+                                          |-> Plugin protocol (pure JVM: :plugin:protocol types, :plugin:fixtures source)
                                           |-> Player coordinator -> Media3 service -> ExoPlayer
                                           |-> Catalog -> confirmed audio provider(s)
                                           |-> Plugin manager -> bounded data-only interpreter -> allowlisted HTTP/auth
@@ -13,7 +14,7 @@ Compose / ViewModels -> application use cases -> pure domain interfaces
                                           |-> Library -> metadata resolver -> SAF documents + Room
 ```
 
-Plugins output structured `AudiobookEditionCandidate`, `SourceRelease`, `AcquisitionRequest` and `ResolvedDownload`. A plugin cannot emit code, UI fragments, raw Android `Intent`s, a database handle, a `ContentResolver`, or arbitrary file paths. Host reserves all state mutations and error handling. A source adapter is not automatically a debrid resolver; compose only after the individual interfaces are separately proved.
+Plugins output structured `AudiobookEditionCandidate`, `SourceRelease`, `AcquisitionRequest` and `ResolvedDownload` (AA-018 implements the typed boundary as `:plugin:protocol` + `:plugin:fixtures`; see `docs/decisions/0006-plugin-protocol-boundary.md`). A plugin cannot emit code, UI fragments, raw Android `Intent`s, a database handle, a `ContentResolver`, or arbitrary file paths. Host reserves all state mutations and error handling. A source adapter is not automatically a debrid resolver; compose only after the individual interfaces are separately proved.
 
 ### A1. Suggested Kotlin interface sketches (conceptual; not copy-paste-compiled)
 

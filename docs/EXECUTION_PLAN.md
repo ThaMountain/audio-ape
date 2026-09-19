@@ -50,7 +50,7 @@ Each ticket gets issue ID `AA-###`, a small branch `aa/###-short-name`, tests, a
 
 **AA-017 — Formal capability table.** Define v0 JSON schema for metadata, source discovery, provider resolver, typed auth; show which host-provided finite primitives support Audiobook Bay-style lookup. Determine whether site-specific parsing requires built-in host adapter; no arbitrary remote scripts. Done: explicit supported/not-supported matrix and safety review.
 
-**AA-018 — Fake/legal source.** Implement fixed fixture source returning one confirmed public-domain audiobook with 2 releases. Plugin cannot directly render UI or modify Room. Test shape/error/empty and distinct plugin-scoped results.
+**AA-018 — Fake/legal source.** Implement fixed fixture source returning one confirmed public-domain audiobook with 2 releases. Plugin cannot directly render UI or modify Room. Test shape/error/empty and distinct plugin-scoped results. Done: `:plugin:protocol` + `:plugin:fixtures` pure-JVM modules (typed boundary shapes, capability-gated `fixture.catalog/sources/resolve.v0` primitives, checksum-pinned Heart of Darkness record from `contracts/catalog-librivox-fixtures.json`, isolation + pairing + immutability JVM tests). See `docs/decisions/0006-plugin-protocol-boundary.md`.
 
 **AA-019 — Fixture resolver.** Implement fixture acquisition provider that returns a stable permissioned audio download; map source release -> provider job/files -> URL. Test expiring-link simulation, 401, 429, wrong edition, absent files.
 
