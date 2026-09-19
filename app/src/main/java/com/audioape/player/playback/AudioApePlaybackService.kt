@@ -16,9 +16,6 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionError
 import com.audioape.core.database.AudioApeDatabase
-import com.audioape.core.database.MediaPartEntity
-import com.audioape.core.model.ContentReference
-import com.audioape.core.model.MediaPart
 import com.audioape.player.MainActivity
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +37,7 @@ class AudioApePlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-        database = AudioApeDatabase.create(this)
+        database = PlaybackServiceDependencies.databaseFactory(this)
         player =
             ExoPlayer
                 .Builder(this)
@@ -172,9 +169,9 @@ class AudioApePlaybackService : MediaLibraryService() {
                 val parts = database.mediaPartDao().parts(checkpoint.bookId)
                 if (parts.isEmpty()) return@withContext null
                 val playlist =
-                    PlaybackPlaylistFactory.create(
+                    PlaybackPlaylistFactory.createFromEntities(
                         bookTitle = book.displayTitle,
-                        parts = parts.map(MediaPartEntity::toPlaybackModel),
+                        parts = parts,
                     )
                 val start =
                     PlaybackRestorePlanner.restore(checkpoint.bookId, playlist.timeline, checkpoint)
@@ -244,15 +241,3 @@ class AudioApePlaybackService : MediaLibraryService() {
                 ).build()
     }
 }
-
-private fun MediaPartEntity.toPlaybackModel(): MediaPart =
-    MediaPart(
-        id = partId,
-        bookId = bookId,
-        orderIndex = partOrder,
-        contentReference = ContentReference(contentUri),
-        cachedDurationMilliseconds = cachedDurationMs,
-        bytes = bytes,
-        sha256 = sha256,
-        formatHint = formatHint,
-    )
