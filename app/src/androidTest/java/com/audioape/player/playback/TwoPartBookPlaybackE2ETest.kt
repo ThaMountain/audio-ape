@@ -344,6 +344,7 @@ class TwoPartBookPlaybackE2ETest {
         const val TOTAL_DURATION_MS = 7_000L
         const val CHECKPOINT_MS = 2_750L
         const val CHECKPOINT_SPEED = 1.5f
+
         /**
          * Bounded-loss window = one periodic flush cadence (PLY-013: 10s interval). The durable
          * checkpoint is whatever last periodic/transition flush committed before the kill; genuine
