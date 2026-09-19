@@ -7,6 +7,8 @@ plugins {
 
 android {
     namespace = "com.audioape.player"
+    // API 36 is the repository's owner-verified Android 16 target for the physical test phone.
+    //noinspection GradleDependency
     compileSdk = 36
 
     defaultConfig {
@@ -22,6 +24,10 @@ android {
     buildFeatures {
         buildConfig = true
         compose = true
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 
     compileOptions {
@@ -47,10 +53,19 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":core:database"))
+    implementation(project(":core:model"))
+
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.concurrent.futures)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.kotlinx.coroutines.core)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -59,5 +74,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit4)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.test.runner)
 }
