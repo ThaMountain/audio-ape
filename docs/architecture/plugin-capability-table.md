@@ -224,8 +224,14 @@ without its built-in host adapter.
   `fixture.catalog.v0`/`fixture.sources.v0`/`fixture.resolve.v0` primitives now build
   and test as pure JVM (capability-gated, checksum-pinned, isolation-tested). See
   `docs/decisions/0006-plugin-protocol-boundary.md`.
-- AA-019: fixture resolver/download descriptor refinement (expiring-link simulation,
-  401/429, wrong edition, absent files) — not built here.
+- AA-019: **implemented** — fixture acquisition resolver: `ResolvedDownload`/
+  `DownloadDescriptor` (§G resolveLink), `ProviderJobStatus`/`ProviderJob`/`ProviderFile`/
+  `ResolveSession`/`ResolveSessionStep`, typed 401 (`FORBIDDEN`) and 429
+  (`LIMIT_EXCEEDED` + bounded `Retry-After`) rejections, `RetryPolicy`
+  (no tight-loop 401 retry; 300 s / 3-attempt caps), and the deterministic
+  `FixtureResolverSimulator` covering expired links, wrong edition (typed mismatch, no
+  silent substitution) and absent files (typed empty). Pure JVM; no host engine,
+  network, or Android.
 - AA-020: vault prototype; confirms `authorization`/`requiresOwnVault` semantics.
 - AA-022/AA-023: Audiobook Bay/debrid go-no-go and the abuse-case battery that this
   table promises ("intentional malicious fixtures rejected and recorded").
