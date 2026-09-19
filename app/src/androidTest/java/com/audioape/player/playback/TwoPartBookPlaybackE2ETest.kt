@@ -60,8 +60,8 @@ class TwoPartBookPlaybackE2ETest {
         controller?.let { connected -> runCatching { onMain { connected.release() } } }
         controller = null
         context.stopService(Intent(context, AudioApePlaybackService::class.java))
-        waitUntil(timeoutMs = 2_000L) { playbackPid() == null }
-        killPlaybackProcessIfRunning()
+        // No kill here: the in-test am crash is the only intentional crash; adding another kill at the
+        // end lands in the instrumentation window and trips AGP's app-crash exit-code heuristic.
         PlaybackServiceDependencies.resetDatabaseFactory()
         PlaybackServiceDependencies.setTestDatabaseName(context, null)
         if (this::database.isInitialized && database.isOpen) database.close()

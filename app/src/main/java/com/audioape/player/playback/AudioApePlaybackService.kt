@@ -94,7 +94,10 @@ class AudioApePlaybackService : MediaLibraryService() {
             // Best-effort final write, NON-blocking: never runBlocking the main thread in onDestroy
             // (a saturated IO/provider would stall service teardown; PLY-013 accepts bounded loss on
             // unclean shutdown). Database closes after the write attempt, or the process dies and
-            // the already-flushed periodic checkpoints are the durable bound.
+            // the already-flushed periodic checkpoints are the durable bound. NOTE: the connected
+            // crash-recovery test intentionally `am crash`es the playback process, so AGP's
+            // connected-task exit-code heuristic reports 1 even though the testcase passes (100%
+            // success in the XML/reports) — the crash IS the test.
             CoroutineScope(Dispatchers.IO + Job()).launch {
                 val completed =
                     withTimeoutOrNull(FINAL_WRITE_TIMEOUT_MS) {
