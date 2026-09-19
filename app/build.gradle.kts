@@ -34,6 +34,9 @@ android {
         baseline = file("lint-baseline.xml")
         checkDependencies = true
         warningsAsErrors = true
+        // Version pins are deliberately frozen to the newest AGP/Kotlin/Compose-compatible set
+        // (AA-003). This advisory is not a defect, so it must not fail warnings-as-errors.
+        disable += "NewerVersionAvailable"
     }
 }
 
