@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AudioApe"
 include(":app")
+include(":core:model")
