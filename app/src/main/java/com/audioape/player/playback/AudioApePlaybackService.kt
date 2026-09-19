@@ -25,7 +25,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.Executor
@@ -87,20 +86,28 @@ class AudioApePlaybackService : MediaLibraryService() {
         coldRestoreJob?.cancel()
         val finalCheckpointBatch = checkpointRecorder.stopAndTakeFinalBatch()
         serviceScope.cancel()
-        val finalWriteCompleted =
-            runBlocking {
-                withTimeoutOrNull(FINAL_WRITE_TIMEOUT_MS) {
-                    checkpointRecorder.writeFinalBatch(finalCheckpointBatch)
-                }
-            }
-        if (finalWriteCompleted != true && finalCheckpointBatch.isNotEmpty()) {
-            Log.w(TAG, "Final playback checkpoint did not complete before shutdown")
-        }
         player.removeListener(checkpointListener)
         player.removeListener(focusLossListener)
         player.release()
         mediaLibrarySession.release()
-        database.close()
+        if (finalCheckpointBatch.isNotEmpty()) {
+            // Best-effort final write, NON-blocking: never runBlocking the main thread in onDestroy
+            // (a saturated IO/provider would stall service teardown; PLY-013 accepts bounded loss on
+            // unclean shutdown). Database closes after the write attempt, or the process dies and
+            // the already-flushed periodic checkpoints are the durable bound.
+            CoroutineScope(Dispatchers.IO + Job()).launch {
+                val completed =
+                    withTimeoutOrNull(FINAL_WRITE_TIMEOUT_MS) {
+                        checkpointRecorder.writeFinalBatch(finalCheckpointBatch)
+                    }
+                if (completed != true) {
+                    Log.w(TAG, "Final playback checkpoint did not complete before shutdown")
+                }
+                database.close()
+            }
+        } else {
+            database.close()
+        }
         super.onDestroy()
     }
 
