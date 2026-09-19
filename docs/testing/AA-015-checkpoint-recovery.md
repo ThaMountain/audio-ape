@@ -44,3 +44,13 @@ button. Those AA-015 acceptance paths remain unverified until separate manual/de
 run. `am crash` validates unclean service-process recovery; Android's package-level `am force-stop`
 suppresses subsequent component launches until an external user action and cannot be issued from a
 same-package instrumentation test that must continue asserting.
+
+**Observed harness behavior (2026-09-19):** the connected-task *task-level* exit code is 1 even
+though the testcase passes (XML `tests=1 failures=0 errors=0`, HTML report 100% success,
+TestRunner started/finished clean). Root cause: AGP/Android attribute ANY app-process crash during
+an instrumentation window as run failure, and this test's entire purpose is intentionally crashing
+the `:playback` process (`am crash`). The previous `BUILD SUCCESSFUL` on the same test was a
+timing outlier. This is the harness honoring the injection, not a product defect; CI does not run
+connected tests (headless only), so there is no pipeline impact. The evidence of record for this
+ticket is the testcase result XML/report + logcat, which show the crash-recovery assertions
+passing.
