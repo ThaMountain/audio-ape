@@ -43,14 +43,14 @@ import kotlin.ByteArray
  *
  * All operations are synchronous (the app already routes plugin operations off the UI
  * thread). The only seam is [VaultKeyRing]: tests inject a deterministic fake ring and
- * can simulate invalidation; the production ring is [VaultKeyRing.production]. The
- * AES/GCM ciphertext at rest is produced by the same production [javax.crypto.Cipher]
- * code path in tests, so the on-disk ciphertext assertion is real.
+ * can simulate invalidation; the production ring is [FileBackedKeyRing] (ADR-0008 — the
+ * OS Android Keystore is blocked on Android 16/API 36). The AES/GCM ciphertext at rest is
+ * produced by the same production [javax.crypto.Cipher] code path in tests, so the on-disk
+ * ciphertext assertion is real.
  */
 class PluginCredentialVault(
     private val vaultDirectory: java.io.File,
-    private val keystoreProvider: (scope: VaultKeyRing.Scope) -> VaultKeyRing =
-        VaultKeyRing::production,
+    private val keystoreProvider: (scope: VaultKeyRing.Scope) -> VaultKeyRing = { FileBackedKeyRing(vaultDirectory) },
 ) {
     /** Creates (or opens) a keystore key for [pluginId] and stores [secret] under [credentialId]. */
     fun store(

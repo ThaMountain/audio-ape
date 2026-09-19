@@ -77,6 +77,9 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+    // AA-020: app-level instrumentation drives the REAL Android Keystore vault backend on
+    // emulator/device (Robolectric is headless and uses the fake key ring).
+    androidTestImplementation(project(":plugin:host"))
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.junit4)
