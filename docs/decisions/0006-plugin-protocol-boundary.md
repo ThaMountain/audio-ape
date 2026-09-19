@@ -83,6 +83,29 @@ list (never an error).
   search, no UI, no downloads, no Room/SAF/player touch, no network primitives.
 - `EditionMetadata`/`CredentialGrant` protocol shapes are present (they are the rest of
   the capability enum) but **no** `fixture.metadata.v0`/`fixture.auth.v0` primitive is
-  implemented — that is AA-019/AA-020.
+  implemented — that is AA-020.
 - Real-debrid/TorBox/Audiobook Bay remain out of scope (AA-022 gate; see ADR-0004).
 - No Android runtime or device has exercised these modules (pure JVM only), by design.
+
+## 8. AA-019 resolver addendum (fixture acquisition resolver, implemented)
+
+- **`ResolvedDownload`/`DownloadDescriptor`**: §G `resolveLink`'s short-lived HTTPS URL
+  plus `expiresAt` and an optional deterministic `sha256`. `AcquisitionPlan.download`
+  (nullable) carries it; when set, its URL must be the direct URL of one plan file (the
+  host never treats a null URL as fetchable media). Fixture links are expiring on
+  purpose and the fixture expiry is a named forward constant so the simulation behaves
+  identically in CI and on real clocks.
+- **Transfer surfaces**: `ProviderJobStatus` (READY/PENDING/ERROR), `ProviderJob`,
+  `ProviderFile`, `ResolveSession` + `ResolveSessionStep`
+  (PREPARE_SOURCE → QUERY_STATUS → SELECT_FILES → RESOLVE_LINK).
+- **Typed failures**: `pluginAuthRequired()` (401 ⇒ `FORBIDDEN`, never auto-retried) and
+  `pluginRateLimited(retryAfterMs)` (429 ⇒ `LIMIT_EXCEEDED` with a bounded
+  `RateLimitRejection`); `RetryPolicy` enforces the "no tight-loop retry" rule and caps
+  provider `Retry-After` at 300 s with a 3-attempt budget. `DeferredDownload` is the
+  fixture-honest bridge: the static resolver produces the job, the host's provider
+  worker produces the link (AA-021).
+- **Failure-state simulation**: `FixtureResolverSimulator` (injectable
+  `FixtureSimulatorSession` + `FixtureResolverClock`) and the static
+  `FixtureSourceService.prepareSource/queryStatus/selectFiles/resolveLink` cover
+  expired links, 401, 429, wrong-edition (typed mismatch, never silent substitution),
+  and absent files (typed empty).

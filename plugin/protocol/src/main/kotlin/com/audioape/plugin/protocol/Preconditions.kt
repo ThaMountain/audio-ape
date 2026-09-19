@@ -54,6 +54,30 @@ fun requireOptionalUrl(
     }
 }
 
+fun requireNotEmpty(
+    values: List<String>,
+    label: String,
+) {
+    require(values.isNotEmpty()) { "$label must not be empty" }
+    require(values.all { it.isNotBlank() }) { "$label entries must not be blank" }
+}
+
+fun requireUnique(
+    values: List<String>,
+    label: String,
+) {
+    require(values.map { it.trim() }.distinct().size == values.size) {
+        "$label must be unique"
+    }
+}
+
+fun requirePositive(
+    value: Long,
+    label: String,
+) {
+    require(value > 0L) { "$label must be positive" }
+}
+
 fun isHttpOrHttpsUrl(candidate: String): Boolean =
     runCatching {
         val parsed = URI(candidate)

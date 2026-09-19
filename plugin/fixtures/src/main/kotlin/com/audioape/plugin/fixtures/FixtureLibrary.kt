@@ -2,6 +2,7 @@ package com.audioape.plugin.fixtures
 
 import com.audioape.plugin.protocol.AcquisitionPlan
 import com.audioape.plugin.protocol.CatalogItem
+import com.audioape.plugin.protocol.DownloadDescriptor
 import com.audioape.plugin.protocol.MatchConfidence
 import com.audioape.plugin.protocol.Provenance
 import com.audioape.plugin.protocol.ReleaseFile
@@ -91,16 +92,32 @@ object FixtureLibrary {
                     ReleaseFile(
                         name = "heart_of_darkness.zip",
                         sizeBytes = 8_260_000L,
-                        url = base.ZIP_URL,
+                        url = null,
                     ),
                 )
             } else {
                 return null
             }
+        val descriptor =
+            DownloadDescriptor(
+                url =
+                    if (releaseId == RELEASE_64KBPS) {
+                        HeartOfDarknessFixture.FIRST_TRACK_URL
+                    } else {
+                        FixtureResolverSession.FIXTURE_RESOLVED_URL_ZIP
+                    },
+                expiresAt = FixtureLibrary.FIXTURE_URL_EXPIRY_MS,
+                sha256 = FixtureLibrary.sha256Of(releaseId),
+            )
         return AcquisitionPlan(
             releaseId = releaseId,
             sourceReleaseId = releaseId,
-            files = files,
+            files =
+                listOf(
+                    files.single().copy(
+                        url = descriptor.url,
+                    ),
+                ),
             provenance =
                 Provenance(
                     sourceId = SOURCE_ID,
@@ -108,6 +125,17 @@ object FixtureLibrary {
                     provider = "librivox-fixture",
                 ),
             confidence = MatchConfidence(exactEdition = true, verifiedAudio = true),
+            download = descriptor,
         )
     }
+
+    /** Fixture links are expiring by construction; both releases share this deadline. */
+    const val FIXTURE_URL_EXPIRY_MS = FixtureResolverSession.FIXTURE_EXPIRY_MS
+
+    private fun sha256Of(releaseId: String): String =
+        if (releaseId == RELEASE_64KBPS) {
+            "e7b5d8150c6573b5b308133577a5882a0e018d5e56686b150f1fb7df3715f0e0"
+        } else {
+            "d51c2bcbafc88301fe7fa8fff7de3599372b3e520c3d4fedf256d9779ccc8593"
+        }
 }

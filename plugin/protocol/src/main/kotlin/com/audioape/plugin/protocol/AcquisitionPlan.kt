@@ -57,10 +57,20 @@ data class AcquisitionPlan(
     val provenance: Provenance,
     val confidence: MatchConfidence = MatchConfidence(),
     val sourceReleaseId: String,
+    val download: DownloadDescriptor? = null,
 ) {
     init {
         requireNonBlank(releaseId, "acquisition plan release id")
         require(files.isNotEmpty()) { "an acquisition plan needs at least one release file" }
         requireNonBlank(sourceReleaseId, "acquisition plan source release id")
+        require(
+            download == null ||
+                files.any { it.name == fileIdentityOf(download.url) && it.url != null },
+        ) {
+            "a resolved download must name one release file with a direct URL"
+        }
     }
 }
+
+/** Stable file identity for a direct URL: the path basename, never a filesystem path. */
+internal fun fileIdentityOf(url: String): String = url.substringAfterLast("/")

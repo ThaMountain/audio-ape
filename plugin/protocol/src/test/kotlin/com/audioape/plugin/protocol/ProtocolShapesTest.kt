@@ -153,6 +153,112 @@ class ProtocolShapesTest {
         }
     }
 
+    @Test
+    fun `download descriptor is immutable and enforces expiry and hex sha`() {
+        val descriptor =
+            DownloadDescriptor(
+                url = "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_1a_conrad_64kb.mp3",
+                expiresAt = fixtureExpiry,
+                sha256 = fixtureSha256(),
+            )
+        assertEquals(descriptor, descriptor.copy())
+        assertFalse(descriptor.isExpiredAt(fixtureExpiry - 1L))
+        assertTrue(descriptor.isExpiredAt(fixtureExpiry))
+
+        assertThrows(IllegalArgumentException::class.java) {
+            descriptor.copy(expiresAt = 0L)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            descriptor.copy(sha256 = "NOT_A_HEX_DIGEST")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            descriptor.copy(url = "ftp://insecure.example/x.mp3")
+        }
+    }
+
+    @Test
+    fun `provider job and resolve session keep the closed enums and bounds`() {
+        val job =
+            ProviderJob(
+                providerJobId = "fixture-job:heart-of-darkness",
+                status = ProviderJobStatus.READY,
+                files =
+                    listOf(
+                        ProviderFile(
+                            fileId = "fixture-file:parts",
+                            name = "heart_of_darkness_1a_conrad_64kb.mp3",
+                            sizeBytes = 1_370_000L,
+                        ),
+                    ),
+                expiresAt = fixtureExpiry,
+            )
+        assertEquals(job, job.copy())
+        assertEquals(ProviderJobStatus.READY, job.status)
+
+        val session =
+            ResolveSession(
+                providerJobId = job.providerJobId,
+                step = ResolveSessionStep.SELECT_FILES,
+                matches = job.files,
+            )
+        assertEquals(ResolveSessionStep.SELECT_FILES, session.step)
+        assertEquals(1, session.matches.size)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            ResolveSession(providerJobId = "job", step = ResolveSessionStep.QUERY_STATUS, matches = emptyList())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            job.copy(expiresAt = -1L)
+        }
+    }
+
+    @Test
+    fun `retry policy never schedules auth or non-rate-limit retries`() {
+        val stop = RetryPolicy.stopFor(PluginErrorCode.FORBIDDEN)
+        assertEquals(RetryDecision.STOP, stop.decision)
+        assertFalse(stop.canRetry)
+        assertEquals(stop, stop.copy())
+
+        val retryable = RetryPolicy.forRateLimit(attempt = 1, retryAfterMs = 5_000L)
+        assertEquals(RetryDecision.RETRY_AFTER, retryable.decision)
+        assertTrue(retryable.canRetry)
+        assertTrue(retryable.recommendedDelayMs <= RetryPolicy.MAX_DELAY_MS)
+
+        val exhausted = RetryPolicy.forRateLimit(attempt = RetryPolicy.MAX_ATTEMPTS, retryAfterMs = 5_000L)
+        assertEquals(RetryDecision.STOP, exhausted.decision)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            RetryPolicy(
+                code = PluginErrorCode.NOT_FOUND,
+                decision = RetryDecision.RETRY_AFTER,
+                recommendedDelayMs = 1_000L,
+            )
+        }
+        // Oversized Retry-After is sanitized to the cap, never rejected or looped.
+        val capped = RetryPolicy.forRateLimit(attempt = 1, retryAfterMs = RetryPolicy.MAX_DELAY_MS + 60_000L)
+        assertEquals(RetryPolicy.MAX_DELAY_MS, capped.recommendedDelayMs)
+        assertTrue(capped.canRetry)
+    }
+
+    @Test
+    fun `rate limit and auth rejection helpers carry typed shapes`() {
+        val rate = pluginRateLimited<Int>(retryAfterMs = 7_000L)
+        assertFalse(rate.isSuccess)
+        assertEquals(PluginErrorCode.LIMIT_EXCEEDED, rate.rejection?.code)
+        assertEquals(7_000L, rate.rateLimitHintMs)
+
+        val auth = pluginAuthRequired<Int>()
+        assertEquals(PluginErrorCode.FORBIDDEN, auth.rejection?.code)
+        assertTrue(auth.isRejected)
+        assertThrows(IllegalArgumentException::class.java) {
+            pluginRateLimited<Int>(retryAfterMs = RetryPolicy.MAX_DELAY_MS + 1L)
+        }
+    }
+
+    private fun fixtureSha256(): String = "e7b5d8150c6573b5b308133577a5882a0e018d5e56686b150f1fb7df3715f0e0"
+
+    private val fixtureExpiry: Long = 1_798_646_400_000L
+
     private fun catalogItem() =
         CatalogItem(
             workAliases = listOf("work-64"),
