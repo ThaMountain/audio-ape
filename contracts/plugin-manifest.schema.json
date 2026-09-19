@@ -1,43 +1,243 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.org/audio-ape/contracts/plugin-manifest-v0.schema.json",
-  "title": "Audio Ape illustrative data-only plugin manifest v0 — NOT security audited",
-  "description": "This starter grammar is deliberately restrictive; implementers must freeze and security-audit the actual v1 before publishing third-party packages. Never execute package code or treat schema validation as sandboxing.",
+  "title": "Audio Ape data-only plugin manifest v0 — formal capability/operation grammar",
+  "description": "AA-017 refinement of the illustrative starter grammar. Deliberately restrictive: schemaVersion 0 stays frozen; additionalProperties is false throughout every object; capabilities and host operations are closed enums; permissions.allowedHosts are literal HTTPS hostnames (no scheme, no wildcard, no port, no path, no private/localhost); operations carry per-op host and payload budgets. This schema encodes what a manifest may EXPRESS; it is NOT a sandbox. Every primitive listed here requires host-side enforcement (docs/architecture/plugin-safety-review.md): redirect revalidation, DNS/private-IP checks, body/time/count/depth budgets, vault isolation, and the pairing of capabilities with allowed host operations.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "pluginId", "version", "displayName", "publisher", "capabilities", "permissions", "operations"],
   "properties": {
-    "schemaVersion": { "const": 0 },
-    "pluginId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*){1,5}$", "maxLength": 128 },
-    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-    "displayName": { "type": "string", "minLength": 1, "maxLength": 70 },
-    "publisher": { "type": "string", "minLength": 1, "maxLength": 80 },
-    "description": { "type": "string", "maxLength": 300 },
+    "schemaVersion": {
+      "const": 0,
+      "description": "Frozen at 0 for the v0 design phase; the executable V1 grammar is a separate, security-audited schema."
+    },
+    "pluginId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*){1,5}$",
+      "maxLength": 128
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 70
+    },
+    "publisher": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 300
+    },
     "capabilities": {
-      "type": "array", "uniqueItems": true, "minItems": 1, "maxItems": 5,
-      "items": { "enum": ["catalog", "metadata", "source_search", "authorization", "acquisition_resolver"] }
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "enum": ["catalog", "metadata", "source_search", "authorization", "acquisition_resolver"],
+        "description": "Closed capability enum (PLG-001). Each declared capability must pair with at least one allowed operation in 'operations'."
+      }
     },
     "permissions": {
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
       "required": ["allowedHosts", "requiresOwnVault", "allowBackgroundRefresh"],
       "properties": {
-        "allowedHosts": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?!-)[a-z0-9-]+(\\.[a-z0-9-]+)+$", "maxLength": 253 } },
-        "requiresOwnVault": { "type": "boolean" },
-        "allowBackgroundRefresh": { "type": "boolean" }
+        "allowedHosts": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(?!-)[a-z0-9-]+(\\.[a-z0-9-]+)+$",
+            "maxLength": 253,
+            "not": {
+              "anyOf": [
+                {
+                  "pattern": "^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$",
+                  "description": "Reject IPv4 literals (e.g. 127.0.0.1)."
+                },
+                {
+                  "pattern": "^xn--",
+                  "description": "Reject punycode/IDN alias hosts (canonicalization is host-side)."
+                }
+              ]
+            },
+            "description": "Literal HTTPS hostname. No scheme, port, path, userinfo, wildcard, IP literal, loopback/private/reserved/localhost, or punycode alias. Host-enforced literal check, DNS revalidation and private-address denial (docs/architecture/plugin-safety-review.md T02)."
+          }
+        },
+        "requiresOwnVault": {
+          "type": "boolean",
+          "description": "true admits typed auth actions for this plugin's own (pluginId, credentialId) secrets in the host app-private vault. false (fixtures) never touches the vault. Tokens never leave the vault except as typed CredentialRef inputs to host auth/resolver actions."
+        },
+        "allowBackgroundRefresh": {
+          "type": "boolean",
+          "description": "If true, the host may poll within background refresh budgets (rate, time-of-day, byte caps per day). If false, all manifest operations start from user interaction only."
+        }
       }
     },
     "operations": {
-      "type": "array", "minItems": 1, "maxItems": 8,
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
       "items": {
-        "type": "object", "additionalProperties": false,
+        "type": "object",
+        "additionalProperties": false,
         "required": ["capability", "hostOperation"],
         "properties": {
-          "capability": { "enum": ["catalog", "metadata", "source_search", "authorization", "acquisition_resolver"] },
-          "hostOperation": { "enum": ["fixture.catalog.v0", "fixture.metadata.v0", "fixture.sources.v0", "fixture.auth.v0", "fixture.resolve.v0", "http.get_json.v0"] },
-          "host": { "type": "string", "pattern": "^(?!-)[a-z0-9-]+(\\.[a-z0-9-]+)+$", "maxLength": 253 },
-          "pathTemplate": { "type": "string", "maxLength": 160, "pattern": "^/[a-zA-Z0-9/_-]*$" },
-          "maxResponseBytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
-          "fieldMapId": { "type": "string", "pattern": "^[a-z0-9_.-]+$", "maxLength": 80 }
+          "capability": {
+            "enum": ["catalog", "metadata", "source_search", "authorization", "acquisition_resolver"],
+            "description": "Must be a declared capability; pairing (http.get_json.v0 is not valid for authorization/acquisition_resolver) is a parse-time battery rule (docs/architecture/plugin-capability-table.md §3) because draft-2020-12 cannot tie two arrays. The host loader re-checks at runtime."
+          },
+          "hostOperation": {
+            "enum": [
+              "http.get_json.v0",
+              "fixture.catalog.v0",
+              "fixture.metadata.v0",
+              "fixture.sources.v0",
+              "fixture.auth.v0",
+              "fixture.resolve.v0",
+              "authorization.oauth.device.v0",
+              "resolver.debrid.job.v0",
+              "resolver.debrid.files.v0"
+            ],
+            "description": "Closed finite host primitive set. Every member maps to a host primitive with fixed budgets; no free-form operation names, and no operation may be defined by the manifest."
+          },
+          "host": {
+            "type": "string",
+            "pattern": "^(?!-)[a-z0-9-]+(\\.[a-z0-9-]+)+$",
+            "maxLength": 253,
+            "not": {
+              "anyOf": [
+                {
+                  "pattern": "^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$",
+                  "description": "Reject IPv4 literals (e.g. 127.0.0.1)."
+                },
+                {
+                  "pattern": "^xn--",
+                  "description": "Reject punycode/IDN alias hosts (canonicalization is host-side)."
+                }
+              ]
+            },
+            "description": "Required for http.get_json.v0 (must be an allowedHosts literal). SHOULD NOT be present otherwise; ignored/asserted by the loader."
+          },
+          "pathTemplate": {
+            "type": "string",
+            "maxLength": 160,
+            "pattern": "^/[a-zA-Z0-9/_-]*$",
+            "description": "Static path or fixed placeholder template, no '..', no query string (query params are host-built from typed op inputs), no user text insertion."
+          },
+          "maxResponseBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8388608,
+            "default": 1048576,
+            "description": "Per-response body cap. Hard ceiling 8 MiB; default 1 MiB. Byte-counted after decompression. Exceeding the cap aborts the request (T05)."
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 30000,
+            "default": 10000,
+            "description": "Per-attempt wall-clock cap. No infinite waits; retries are host-capped. Any value above 30000 is rejected, not clamped."
+          },
+          "fieldMapId": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.-]+$",
+            "maxLength": 80,
+            "description": "Reference to a host-side frozen field map (named data-shape mapping). Plugins cannot inline selectors/expressions. Reserved for host-defined maps only."
+          }
+        },
+        "if": {
+          "properties": { "hostOperation": { "const": "http.get_json.v0" } },
+          "required": ["hostOperation"]
+        },
+        "then": { "required": ["host"] }
+      }
+    },
+    "settingsSchema": {
+      "type": "object",
+      "description": "Optional plugin-scoped user settings, as a restrictive custom declarative shape (NOT a full JSON-schema subschema: it deliberately avoids JSON-schema keyword names that a strict parser would interpret and that would allow schema-in-schema recursion). Settings are stored app-private and shown by Audio Ape's generated UI. No default that enables network, no arbitrary default, no positivity with side effects. Settings may not define host operations (settings cannot write capabilities).",
+      "maxProperties": 8,
+      "required": ["fields"],
+      "properties": {
+        "fields": {
+          "type": "object",
+          "maxProperties": 8,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": { "enum": ["text", "integer", "boolean"] },
+              "title": { "type": "string", "minLength": 1, "maxLength": 60 },
+              "description": { "type": "string", "maxLength": 200 },
+              "default": {
+                "description": "Literal default only for the declared kind; booleans false, strings/numbers empty/minimal. No defaults with side effects (no host names, no URLs)."
+              },
+              "pattern": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "Optional literal regex validated by the host against a safe engine with runtime cap (kotlin.text.Regex on JVM in tests; Android contains a fixed-size, documented limit, see safety review T08)."
+              },
+              "minLength": { "type": "integer", "minimum": 0, "maximum": 8192 },
+              "maxLength": { "type": "integer", "minimum": 0, "maximum": 8192 },
+              "minimum": { "type": "number" },
+              "maximum": { "type": "number" }
+            },
+            "if": {
+              "properties": { "kind": { "enum": ["text", "integer", "boolean"] } },
+              "required": ["kind"]
+            },
+            "then": {
+              "oneOf": [
+                {
+                  "properties": { "kind": { "const": "text" } },
+                  "required": ["kind"],
+                  "properties": { "default": { "type": "string", "maxLength": 256 } }
+                },
+                {
+                  "properties": { "kind": { "const": "integer" } },
+                  "required": ["kind"],
+                  "properties": { "default": { "type": "integer" } }
+                },
+                {
+                  "properties": { "kind": { "const": "boolean" } },
+                  "required": ["kind"],
+                  "properties": { "default": { "type": "boolean" } }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "credentialSchema": {
+      "type": "object",
+      "description": "Optional namespaced credentials shape for THIS plugin only, stored in the app-private vault. Values are never echoed by the host into logs, URLs, redirects, webviews, screenshots, or backups. Credential fields are plain typed values; no secrets may be serialized into the manifest itself.",
+      "maxProperties": 8,
+      "required": ["fields"],
+      "properties": {
+        "fields": {
+          "type": "object",
+          "maxProperties": 4,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": { "const": "text" },
+              "title": { "type": "string", "minLength": 1, "maxLength": 60 },
+              "description": { "type": "string", "maxLength": 200 },
+              "secret": { "type": "boolean", "default": true }
+            }
+          }
         }
       }
     }

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 0,
+  "pluginId": "org.example.audioape-http-demo",
+  "version": "0.2.0",
+  "displayName": "Permissible HTTP Demo (data only, no acquisition)",
+  "publisher": "Audio Ape test fixture (fictional)",
+  "description": "Schema positive-path fixture with one literal-HTTPS http.get_json.v0 operation and bounded budgets. It never runs: this file is a grammar example, not a live provider.",
+  "capabilities": ["catalog"],
+  "permissions": {
+    "allowedHosts": ["catalog.audioape.example"],
+    "requiresOwnVault": false,
+    "allowBackgroundRefresh": false
+  },
+  "operations": [
+    {
+      "capability": "catalog",
+      "hostOperation": "http.get_json.v0",
+      "host": "catalog.audioape.example",
+      "pathTemplate": "/api/v1/search",
+      "maxResponseBytes": 262144,
+      "timeoutMs": 5000
+    }
+  ]
+}
