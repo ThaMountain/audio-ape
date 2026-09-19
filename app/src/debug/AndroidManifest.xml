@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Keeps the instrumentation runner alive while AA-015 kills the playback process. -->
+        <service
+            android:name=".playback.AudioApePlaybackService"
+            android:process=":playback" />
+    </application>
+</manifest>

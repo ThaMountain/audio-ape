@@ -31,6 +31,7 @@ class PlaybackRestorePlannerTest {
 
         assertEquals(1, restored.mediaItemIndex)
         assertEquals(2_500L, restored.positionMs)
+        assertEquals(1.0f, restored.speed)
         assertFalse(restored.playWhenReady)
     }
 
@@ -53,6 +54,7 @@ class PlaybackRestorePlannerTest {
 
         assertEquals(1, restored.mediaItemIndex)
         assertEquals(20_000L, restored.positionMs)
+        assertEquals(1.0f, restored.speed)
         assertFalse(restored.playWhenReady)
     }
 
@@ -75,6 +77,28 @@ class PlaybackRestorePlannerTest {
 
         assertEquals(0, restored.mediaItemIndex)
         assertEquals(0L, restored.positionMs)
+        assertFalse(restored.playWhenReady)
+    }
+
+    @Test
+    fun restoresSavedPerBookSpeedWithoutRestoringPlayIntent() {
+        val checkpoint =
+            PlaybackCheckpointEntity(
+                bookId = bookId,
+                positionMs = 1_000L,
+                lastPlayedAt = Instant.EPOCH,
+                speed = 1.75f,
+                lastPlayingIntent = true,
+            )
+
+        val restored =
+            PlaybackRestorePlanner.restore(
+                bookId,
+                BookTimeline.fromDurations(listOf(10_000L)),
+                checkpoint,
+            )
+
+        assertEquals(1.75f, restored.speed)
         assertFalse(restored.playWhenReady)
     }
 }
