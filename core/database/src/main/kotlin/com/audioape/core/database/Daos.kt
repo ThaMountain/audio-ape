@@ -120,6 +120,9 @@ abstract class PlaybackCheckpointDao {
     @Query("SELECT * FROM playback_checkpoint WHERE book_id = :bookId")
     abstract fun observeCheckpoint(bookId: BookId): Flow<PlaybackCheckpointEntity?>
 
+    @Query("SELECT * FROM playback_checkpoint ORDER BY last_played_at DESC, book_id LIMIT 1")
+    abstract suspend fun latestCheckpoint(): PlaybackCheckpointEntity?
+
     /**
      * Stores a batch atomically and always clears playing intent. A cold restore is therefore
      * paused even if a caller submits state captured while audio was playing.

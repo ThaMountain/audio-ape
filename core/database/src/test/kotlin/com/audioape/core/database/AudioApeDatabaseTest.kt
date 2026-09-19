@@ -142,6 +142,21 @@ class AudioApeDatabaseTest {
         }
 
     @Test
+    fun latestCheckpointUsesMostRecentPlaybackTimestamp() =
+        runBlocking {
+            val older = seedBook(60)
+            val newer = seedBook(61)
+            database.playbackCheckpointDao().saveCheckpoints(
+                listOf(
+                    checkpoint(older.bookId, 1_000L),
+                    checkpoint(newer.bookId, 2_000L),
+                ),
+            )
+
+            assertEquals(newer.bookId, database.playbackCheckpointDao().latestCheckpoint()?.bookId)
+        }
+
+    @Test
     fun fileDatabasePersistsAcrossCloseAndReopen() =
         runBlocking {
             database.close()
