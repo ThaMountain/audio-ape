@@ -1,0 +1,888 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "cdc83cd39bb857972caa3a210477cd3a",
+    "entities": [
+      {
+        "tableName": "work",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`work_id` TEXT NOT NULL, `title` TEXT NOT NULL, `authors` TEXT NOT NULL, `series_reference` TEXT, `series_order` REAL, PRIMARY KEY(`work_id`))",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "work_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authors",
+            "columnName": "authors",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seriesReference",
+            "columnName": "series_reference",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "seriesOrder",
+            "columnName": "series_order",
+            "affinity": "REAL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "work_id"
+          ]
+        }
+      },
+      {
+        "tableName": "audio_edition",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`edition_id` TEXT NOT NULL, `work_id` TEXT NOT NULL, `narrator` TEXT, `language` TEXT, `duration_ms` INTEGER NOT NULL, `abridged` INTEGER, `publisher` TEXT, `publication_date` TEXT, `confirmed_audio_evidence` TEXT NOT NULL, PRIMARY KEY(`edition_id`), FOREIGN KEY(`work_id`) REFERENCES `work`(`work_id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "editionId",
+            "columnName": "edition_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workId",
+            "columnName": "work_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "narrator",
+            "columnName": "narrator",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "language",
+            "columnName": "language",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "duration_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "abridged",
+            "columnName": "abridged",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "publisher",
+            "columnName": "publisher",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "publicationDate",
+            "columnName": "publication_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "confirmedAudioEvidence",
+            "columnName": "confirmed_audio_evidence",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "edition_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_audio_edition_work_id",
+            "unique": false,
+            "columnNames": [
+              "work_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_audio_edition_work_id` ON `${TABLE_NAME}` (`work_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "work",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "work_id"
+            ],
+            "referencedColumns": [
+              "work_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "external_alias",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`provider` TEXT NOT NULL, `alias_type` TEXT NOT NULL, `value` TEXT NOT NULL, `edition_id` TEXT NOT NULL, PRIMARY KEY(`provider`, `alias_type`, `value`), FOREIGN KEY(`edition_id`) REFERENCES `audio_edition`(`edition_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "alias_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "editionId",
+            "columnName": "edition_id",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "provider",
+            "alias_type",
+            "value"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_external_alias_edition_id",
+            "unique": false,
+            "columnNames": [
+              "edition_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_external_alias_edition_id` ON `${TABLE_NAME}` (`edition_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "audio_edition",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "edition_id"
+            ],
+            "referencedColumns": [
+              "edition_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "library_book",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`book_id` TEXT NOT NULL, `edition_id` TEXT, `display_title` TEXT NOT NULL, `imported_at` INTEGER NOT NULL, `last_listened_at` INTEGER, `finished_at` INTEGER, `user_owned` INTEGER NOT NULL, PRIMARY KEY(`book_id`), FOREIGN KEY(`edition_id`) REFERENCES `audio_edition`(`edition_id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "editionId",
+            "columnName": "edition_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "displayTitle",
+            "columnName": "display_title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importedAt",
+            "columnName": "imported_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastListenedAt",
+            "columnName": "last_listened_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "finishedAt",
+            "columnName": "finished_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "userOwned",
+            "columnName": "user_owned",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "book_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_library_book_edition_id",
+            "unique": false,
+            "columnNames": [
+              "edition_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_library_book_edition_id` ON `${TABLE_NAME}` (`edition_id`)"
+          },
+          {
+            "name": "index_library_book_last_listened_at",
+            "unique": false,
+            "columnNames": [
+              "last_listened_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_library_book_last_listened_at` ON `${TABLE_NAME}` (`last_listened_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "audio_edition",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "edition_id"
+            ],
+            "referencedColumns": [
+              "edition_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "media_part",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`part_id` TEXT NOT NULL, `book_id` TEXT NOT NULL, `part_order` INTEGER NOT NULL, `content_uri` TEXT NOT NULL, `cached_duration_ms` INTEGER, `bytes` INTEGER, `sha256` TEXT, `codec_container` TEXT, PRIMARY KEY(`part_id`), FOREIGN KEY(`book_id`) REFERENCES `library_book`(`book_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "partId",
+            "columnName": "part_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "partOrder",
+            "columnName": "part_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentUri",
+            "columnName": "content_uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cachedDurationMs",
+            "columnName": "cached_duration_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "bytes",
+            "columnName": "bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "sha256",
+            "columnName": "sha256",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "formatHint",
+            "columnName": "codec_container",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "part_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_part_book_id_part_order",
+            "unique": true,
+            "columnNames": [
+              "book_id",
+              "part_order"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_media_part_book_id_part_order` ON `${TABLE_NAME}` (`book_id`, `part_order`)"
+          },
+          {
+            "name": "index_media_part_sha256",
+            "unique": false,
+            "columnNames": [
+              "sha256"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_part_sha256` ON `${TABLE_NAME}` (`sha256`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "library_book",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "book_id"
+            ],
+            "referencedColumns": [
+              "book_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "chapter",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`chapter_id` TEXT NOT NULL, `book_id` TEXT NOT NULL, `start_ms` INTEGER NOT NULL, `end_ms` INTEGER, `title` TEXT, `provenance` TEXT NOT NULL, `accepted_online` INTEGER NOT NULL, PRIMARY KEY(`chapter_id`), FOREIGN KEY(`book_id`) REFERENCES `library_book`(`book_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "chapterId",
+            "columnName": "chapter_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMs",
+            "columnName": "start_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMs",
+            "columnName": "end_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "provenance",
+            "columnName": "provenance",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acceptedOnline",
+            "columnName": "accepted_online",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "chapter_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_chapter_book_id_start_ms",
+            "unique": true,
+            "columnNames": [
+              "book_id",
+              "start_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_chapter_book_id_start_ms` ON `${TABLE_NAME}` (`book_id`, `start_ms`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "library_book",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "book_id"
+            ],
+            "referencedColumns": [
+              "book_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "playback_checkpoint",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`book_id` TEXT NOT NULL, `position_ms` INTEGER NOT NULL, `last_played_at` INTEGER NOT NULL, `speed` REAL NOT NULL, `last_playing_intent` INTEGER NOT NULL, PRIMARY KEY(`book_id`), FOREIGN KEY(`book_id`) REFERENCES `library_book`(`book_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "position_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastPlayedAt",
+            "columnName": "last_played_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "speed",
+            "columnName": "speed",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastPlayingIntent",
+            "columnName": "last_playing_intent",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "book_id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "library_book",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "book_id"
+            ],
+            "referencedColumns": [
+              "book_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "bookmark",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `book_id` TEXT NOT NULL, `position_ms` INTEGER NOT NULL, `label` TEXT, `note` TEXT, `created_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`book_id`) REFERENCES `library_book`(`book_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "position_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_bookmark_book_id_position_ms",
+            "unique": false,
+            "columnNames": [
+              "book_id",
+              "position_ms"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_bookmark_book_id_position_ms` ON `${TABLE_NAME}` (`book_id`, `position_ms`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "library_book",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "book_id"
+            ],
+            "referencedColumns": [
+              "book_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "collection",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`collection_id` TEXT NOT NULL, `name` TEXT NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`collection_id`))",
+        "fields": [
+          {
+            "fieldPath": "collectionId",
+            "columnName": "collection_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "collection_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_collection_name",
+            "unique": true,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_collection_name` ON `${TABLE_NAME}` (`name`)"
+          }
+        ]
+      },
+      {
+        "tableName": "collection_item",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`collection_id` TEXT NOT NULL, `book_id` TEXT NOT NULL, `added_at` INTEGER NOT NULL, PRIMARY KEY(`collection_id`, `book_id`), FOREIGN KEY(`collection_id`) REFERENCES `collection`(`collection_id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`book_id`) REFERENCES `library_book`(`book_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "collectionId",
+            "columnName": "collection_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addedAt",
+            "columnName": "added_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "collection_id",
+            "book_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_collection_item_book_id",
+            "unique": false,
+            "columnNames": [
+              "book_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_collection_item_book_id` ON `${TABLE_NAME}` (`book_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "collection",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "collection_id"
+            ],
+            "referencedColumns": [
+              "collection_id"
+            ]
+          },
+          {
+            "table": "library_book",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "book_id"
+            ],
+            "referencedColumns": [
+              "book_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "book_history_tombstone",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`tombstone_id` TEXT NOT NULL, `alias_provider` TEXT NOT NULL, `alias_type` TEXT NOT NULL, `alias_value` TEXT NOT NULL, `finished` INTEGER NOT NULL, `deleted` INTEGER NOT NULL, `finished_at` INTEGER, `deleted_at` INTEGER, `recorded_at` INTEGER NOT NULL, PRIMARY KEY(`tombstone_id`))",
+        "fields": [
+          {
+            "fieldPath": "tombstoneId",
+            "columnName": "tombstone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "aliasProvider",
+            "columnName": "alias_provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "aliasType",
+            "columnName": "alias_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "aliasValue",
+            "columnName": "alias_value",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finished",
+            "columnName": "finished",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deleted",
+            "columnName": "deleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finishedAt",
+            "columnName": "finished_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "recordedAt",
+            "columnName": "recorded_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "tombstone_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_book_history_tombstone_alias_provider_alias_type_alias_value",
+            "unique": true,
+            "columnNames": [
+              "alias_provider",
+              "alias_type",
+              "alias_value"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_book_history_tombstone_alias_provider_alias_type_alias_value` ON `${TABLE_NAME}` (`alias_provider`, `alias_type`, `alias_value`)"
+          }
+        ]
+      },
+      {
+        "tableName": "library_search_content",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`rowid` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `book_id` TEXT NOT NULL, `title` TEXT NOT NULL, `authors` TEXT NOT NULL, `narrator` TEXT, `series` TEXT, FOREIGN KEY(`book_id`) REFERENCES `library_book`(`book_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "rowId",
+            "columnName": "rowid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authors",
+            "columnName": "authors",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "narrator",
+            "columnName": "narrator",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "series",
+            "columnName": "series",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "rowid"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_library_search_content_book_id",
+            "unique": true,
+            "columnNames": [
+              "book_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_library_search_content_book_id` ON `${TABLE_NAME}` (`book_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "library_book",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "book_id"
+            ],
+            "referencedColumns": [
+              "book_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "library_search_fts",
+        "createSql": "CREATE VIRTUAL TABLE IF NOT EXISTS `${TABLE_NAME}` USING FTS4(`book_id` TEXT NOT NULL, `title` TEXT NOT NULL, `authors` TEXT NOT NULL, `narrator` TEXT, `series` TEXT, content=`library_search_content`, notindexed=`book_id`)",
+        "fields": [
+          {
+            "fieldPath": "bookId",
+            "columnName": "book_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authors",
+            "columnName": "authors",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "narrator",
+            "columnName": "narrator",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "series",
+            "columnName": "series",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": []
+        },
+        "ftsVersion": "FTS4",
+        "ftsOptions": {
+          "tokenizer": "simple",
+          "tokenizerArgs": [],
+          "contentTable": "library_search_content",
+          "languageIdColumnName": "",
+          "matchInfo": "FTS4",
+          "notIndexedColumns": [
+            "book_id"
+          ],
+          "prefixSizes": [],
+          "preferredOrder": "ASC"
+        },
+        "contentSyncTriggers": [
+          "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_library_search_fts_BEFORE_UPDATE BEFORE UPDATE ON `library_search_content` BEGIN DELETE FROM `library_search_fts` WHERE `docid`=OLD.`rowid`; END",
+          "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_library_search_fts_BEFORE_DELETE BEFORE DELETE ON `library_search_content` BEGIN DELETE FROM `library_search_fts` WHERE `docid`=OLD.`rowid`; END",
+          "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_library_search_fts_AFTER_UPDATE AFTER UPDATE ON `library_search_content` BEGIN INSERT INTO `library_search_fts`(`docid`, `book_id`, `title`, `authors`, `narrator`, `series`) VALUES (NEW.`rowid`, NEW.`book_id`, NEW.`title`, NEW.`authors`, NEW.`narrator`, NEW.`series`); END",
+          "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_library_search_fts_AFTER_INSERT AFTER INSERT ON `library_search_content` BEGIN INSERT INTO `library_search_fts`(`docid`, `book_id`, `title`, `authors`, `narrator`, `series`) VALUES (NEW.`rowid`, NEW.`book_id`, NEW.`title`, NEW.`authors`, NEW.`narrator`, NEW.`series`); END"
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cdc83cd39bb857972caa3a210477cd3a')"
+    ]
+  }
+}
