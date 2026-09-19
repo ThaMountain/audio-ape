@@ -2,7 +2,7 @@
 
 All product decisions from the conversation are recorded in the master spec. These are **not questions Codex should silently answer**; they are proof/approval gates when implementation reaches them.
 
-- [ ] Canonical new GitHub repository and app/package identifier confirmed.
+- [x] Canonical new GitHub repository and app/package identifier confirmed — repo `ThaMountain/audio-ape` (public; owner decided everything open source), package `com.audioape.player` (ADR-0001).
 - [ ] Source or newly isolated ape-with-headphones brand icon approved, ownership/licensing checked.
 - [ ] Actual physical Android test phone model/OS recorded; minSdk/targetSdk resolved.
 - [ ] Document-tree user-accessible folder first-run picker tested on target phone; user agrees UI wording.
