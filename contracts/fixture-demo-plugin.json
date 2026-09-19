@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 0,
+  "pluginId": "org.example.audioape-fixture",
+  "version": "0.1.0",
+  "displayName": "Legal Fixture Source",
+  "publisher": "Audio Ape test fixture (fictional)",
+  "description": "No network access: test a local public-domain or synthetic recording; not a real book acquisition provider.",
+  "capabilities": ["catalog", "source_search", "acquisition_resolver"],
+  "permissions": {
+    "allowedHosts": [],
+    "requiresOwnVault": false,
+    "allowBackgroundRefresh": false
+  },
+  "operations": [
+    { "capability": "catalog", "hostOperation": "fixture.catalog.v0" },
+    { "capability": "source_search", "hostOperation": "fixture.sources.v0" },
+    { "capability": "acquisition_resolver", "hostOperation": "fixture.resolve.v0" }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/audio-ape/contracts/plugin-manifest-v0.schema.json",
+  "title": "Audio Ape illustrative data-only plugin manifest v0 — NOT security audited",
+  "description": "This starter grammar is deliberately restrictive; implementers must freeze and security-audit the actual v1 before publishing third-party packages. Never execute package code or treat schema validation as sandboxing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pluginId", "version", "displayName", "publisher", "capabilities", "permissions", "operations"],
+  "properties": {
+    "schemaVersion": { "const": 0 },
+    "pluginId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*){1,5}$", "maxLength": 128 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "displayName": { "type": "string", "minLength": 1, "maxLength": 70 },
+    "publisher": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "description": { "type": "string", "maxLength": 300 },
+    "capabilities": {
+      "type": "array", "uniqueItems": true, "minItems": 1, "maxItems": 5,
+      "items": { "enum": ["catalog", "metadata", "source_search", "authorization", "acquisition_resolver"] }
+    },
+    "permissions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allowedHosts", "requiresOwnVault", "allowBackgroundRefresh"],
+      "properties": {
+        "allowedHosts": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?!-)[a-z0-9-]+(\\.[a-z0-9-]+)+$", "maxLength": 253 } },
+        "requiresOwnVault": { "type": "boolean" },
+        "allowBackgroundRefresh": { "type": "boolean" }
+      }
+    },
+    "operations": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["capability", "hostOperation"],
+        "properties": {
+          "capability": { "enum": ["catalog", "metadata", "source_search", "authorization", "acquisition_resolver"] },
+          "hostOperation": { "enum": ["fixture.catalog.v0", "fixture.metadata.v0", "fixture.sources.v0", "fixture.auth.v0", "fixture.resolve.v0", "http.get_json.v0"] },
+          "host": { "type": "string", "pattern": "^(?!-)[a-z0-9-]+(\\.[a-z0-9-]+)+$", "maxLength": 253 },
+          "pathTemplate": { "type": "string", "maxLength": 160, "pattern": "^/[a-zA-Z0-9/_-]*$" },
+          "maxResponseBytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+          "fieldMapId": { "type": "string", "pattern": "^[a-z0-9_.-]+$", "maxLength": 80 }
+        }
+      }
+    }
+  }
+}

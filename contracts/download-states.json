@@ -1,0 +1,10 @@
+{
+  "kind": "illustrative_implementation_contract_not_runtime_config",
+  "states": ["queued", "resolving", "waiting_provider", "transferring", "verifying", "extracting", "identifying", "importing", "completed", "paused", "waiting_wifi", "waiting_storage", "retry_scheduled", "failed", "cancelled"],
+  "terminal": ["completed", "cancelled"],
+  "warnings": [
+    "failed can be retried explicitly and is not automatically terminal in every implementation",
+    "never transition to completed before verified playable files and durable database references",
+    "transition table must be completed in code with persisted idempotent event handling"
+  ]
+}

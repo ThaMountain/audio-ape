@@ -1,0 +1,43 @@
+{
+  "fixtureOnly": true,
+  "note": "ALL data and names in this fixture are fictional, for screenshot and unit tests only; do not show as real catalog data.",
+  "work": {
+    "workId": "fixture:work:silent-coast",
+    "title": "The Silent Coast",
+    "authors": [
+      "J. M. Calder"
+    ]
+  },
+  "edition": {
+    "editionId": "fixture:edition:silent-coast:en:calder-narration",
+    "workId": "fixture:work:silent-coast",
+    "confirmedAudioEvidence": "synthetic test-fixture audio only",
+    "narrator": "Fixture Narrator",
+    "language": "en",
+    "durationMs": 65304000,
+    "abridged": false,
+    "publicationDate": null,
+    "description": "An invented audiobook placeholder used solely to exercise the Audio Ape user interface.",
+    "coverImage": "fixture://cover/silent-coast"
+  },
+  "chapters": [
+    {
+      "id": "chapter-01",
+      "title": "Prologue",
+      "startMs": 0,
+      "endMs": 720000
+    },
+    {
+      "id": "chapter-02",
+      "title": "Salt and Stone",
+      "startMs": 720000,
+      "endMs": 2400000
+    },
+    {
+      "id": "chapter-03",
+      "title": "The Weight of Waves",
+      "startMs": 2400000,
+      "endMs": 4100000
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# --- Android / Gradle ---
+.gradle/
+build/
+local.properties
+captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+outputs/
+app/build/
+**/build/
+
+# --- Signing secrets (NEVER commit) ---
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# --- Audio Ape media / private data (never commit real audiobooks) ---
+*.m4b
+*.m4a
+*.mp3
+*.flac
+*.ogg
+*.wav
+media/
+audiobooks/
+
+# --- Generated assets / logs ---
+logs/
+*.log
