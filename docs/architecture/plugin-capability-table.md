@@ -1,11 +1,13 @@
 # Plugin capability table — Audio Ape v0 protocol design
 
-- Status: **DESIGN + CONTRACTS only (AA-017)**. No plugin engine, no runtime code, no UI.
+- Status: **DESIGN + CONTRACTS (AA-017) + pure-JVM boundary proof (AA-018)**. No plugin
+  engine, no Android runtime, no UI.
 - Scope: one diagram of truth for what a data-only plugin may express through the v0
   declarative grammar described in `docs/ARCHITECTURE_AND_CONTRACTS.md` §F, plus the
   host-enforced finite primitives that back it. Runtime enforcement of every row lands in
-  `plugin/protocol` + `plugin/host` (execution plan AA-018..AA-023) and is **not** proven
-  by this ticket.
+  `plugin/host` (execution plan AA-023); the typed boundary shapes and the
+  `fixture.*.v0` primitives are implemented in `plugin/protocol` + `plugin/fixtures`
+  (AA-018, see `docs/decisions/0006-plugin-protocol-boundary.md`).
 - Contract artifact: `contracts/plugin-manifest.schema.json` (schemaVersion 0) and the
   fixture manifest `contracts/fixture-demo-plugin.json`.
 - Threat-model context: `docs/ARCHITECTURE_AND_CONTRACTS.md` §F "Risk controls",
@@ -218,8 +220,12 @@ without its built-in host adapter.
 
 ## 8. Open items and next tickets
 
-- AA-018/AA-019: implement `fixture.*.v0` primitives + capability result shapes; first
-  proof that the table above is actually buildable.
+- AA-018: **implemented** — `:plugin:protocol` typed boundary shapes and the
+  `fixture.catalog.v0`/`fixture.sources.v0`/`fixture.resolve.v0` primitives now build
+  and test as pure JVM (capability-gated, checksum-pinned, isolation-tested). See
+  `docs/decisions/0006-plugin-protocol-boundary.md`.
+- AA-019: fixture resolver/download descriptor refinement (expiring-link simulation,
+  401/429, wrong edition, absent files) — not built here.
 - AA-020: vault prototype; confirms `authorization`/`requiresOwnVault` semantics.
 - AA-022/AA-023: Audiobook Bay/debrid go-no-go and the abuse-case battery that this
   table promises ("intentional malicious fixtures rejected and recorded").
