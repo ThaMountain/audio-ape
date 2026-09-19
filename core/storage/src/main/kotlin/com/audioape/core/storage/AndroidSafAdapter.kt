@@ -13,7 +13,9 @@ import java.io.OutputStream
 class AndroidSafAdapter(
     context: Context,
 ) : SafTreeProvider,
-    SafDocumentOperations {
+    SafDocumentOperations,
+    SafImportDocumentInspection,
+    PartialDestinationCleanup {
     private val appContext = context.applicationContext
     private val contentResolver: ContentResolver = appContext.contentResolver
 
@@ -132,6 +134,58 @@ class AndroidSafAdapter(
             ) ?: throw FileNotFoundException("Provider refused to rename the document")
         return ContentReference(renamed.toString())
     }
+
+    override fun inspectDocument(document: ContentReference): SafDocumentMetadata {
+        val documentUri = document.toDocumentUri()
+        return contentResolver
+            .query(
+                documentUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE,
+                    DocumentsContract.Document.COLUMN_SIZE,
+                ),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) throw FileNotFoundException("Document was not found")
+                SafDocumentMetadata(
+                    displayName = if (cursor.isNull(0)) null else cursor.getString(0),
+                    mimeType = if (cursor.isNull(1)) null else cursor.getString(1),
+                    sizeBytes =
+                        if (cursor.isNull(2)) {
+                            null
+                        } else {
+                            cursor.getLong(2).takeIf { it >= 0L }
+                        },
+                )
+            } ?: throw FileNotFoundException("Provider returned no document metadata")
+    }
+
+    override fun listChildDisplayNames(parent: ContentReference): Set<String> {
+        val parentUri = parent.toDocumentUri()
+        val parentDocumentId = DocumentsContract.getDocumentId(parentUri)
+        val childrenUri =
+            DocumentsContract.buildChildDocumentsUriUsingTree(parent.toUri(), parentDocumentId)
+        return contentResolver
+            .query(
+                childrenUri,
+                arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                buildSet {
+                    while (cursor.moveToNext()) {
+                        if (!cursor.isNull(0)) add(cursor.getString(0))
+                    }
+                }
+            } ?: throw FileNotFoundException("Provider returned no child listing")
+    }
+
+    override fun deletePartialDestination(destination: ImporterOwnedDestination): Boolean =
+        DocumentsContract.deleteDocument(contentResolver, destination.document.toDocumentUri())
 
     private fun createDocument(
         parent: ContentReference,
