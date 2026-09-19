@@ -4,11 +4,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.audioape.core.database.AudioApeDatabase
@@ -27,6 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import java.io.FileInputStream
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -35,38 +36,41 @@ class TwoPartBookPlaybackE2ETest {
     private lateinit var context: Context
     private lateinit var database: AudioApeDatabase
     private lateinit var fixtureDirectory: File
+    private lateinit var testDatabaseName: String
     private var controller: MediaController? = null
 
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        killPlaybackProcessIfRunning()
+        testDatabaseName = "aa015-e2e-${System.nanoTime()}.db"
+        PlaybackServiceDependencies.setTestDatabaseName(context, testDatabaseName)
+        context.deleteDatabase(testDatabaseName)
         fixtureDirectory = File(context.filesDir, "aa014-e2e-${System.nanoTime()}").apply { mkdirs() }
         val partOne = copyAssetToPrivateFiles(PART_ONE_ASSET)
         val partTwo = copyAssetToPrivateFiles(PART_TWO_ASSET)
 
-        database =
-            Room
-                .inMemoryDatabaseBuilder(context, AudioApeDatabase::class.java)
-                .build()
+        database = AudioApeDatabase.create(context, testDatabaseName)
         runBlocking { seedBook(partOne, partTwo) }
-        PlaybackServiceDependencies.databaseFactory = { database }
+        database.close()
     }
 
     @After
     fun tearDown() {
-        controller?.let { connected -> onMain { connected.release() } }
+        controller?.let { connected -> runCatching { onMain { connected.release() } } }
         controller = null
         context.stopService(Intent(context, AudioApePlaybackService::class.java))
-        if (this::database.isInitialized) {
-            waitUntil(timeoutMs = 2_000L) { !database.isOpen }
-        }
+        waitUntil(timeoutMs = 2_000L) { playbackPid() == null }
+        killPlaybackProcessIfRunning()
         PlaybackServiceDependencies.resetDatabaseFactory()
+        PlaybackServiceDependencies.setTestDatabaseName(context, null)
         if (this::database.isInitialized && database.isOpen) database.close()
+        if (this::testDatabaseName.isInitialized) context.deleteDatabase(testDatabaseName)
         if (this::fixtureDirectory.isInitialized) fixtureDirectory.deleteRecursively()
     }
 
     @Test
-    fun seededTwoPartBookRestoresPausedPlaysAndTransitionsInBookTime() {
+    fun coldRestoreAndPlaybackProcessDeathRemainPausedAtBoundedCheckpointWithSpeed() {
         val connected = connectController()
         controller = connected
         assertTrue(onMain { connected.isConnected })
@@ -80,22 +84,25 @@ class TwoPartBookPlaybackE2ETest {
             },
         )
 
-        val uris =
+        val mediaIds =
             onMain {
                 List(connected.mediaItemCount) { index ->
-                    connected
-                        .getMediaItemAt(index)
-                        .localConfiguration
-                        ?.uri
-                        ?.lastPathSegment
+                    connected.getMediaItemAt(index).mediaId
                 }
             }
-        assertEquals(listOf(PART_ONE_ASSET, PART_TWO_ASSET), uris)
+        assertEquals(
+            listOf(
+                "${BOOK_ID.value}/${PART_ONE_ID.value}",
+                "${BOOK_ID.value}/${PART_TWO_ID.value}",
+            ),
+            mediaIds,
+        )
         assertFalse(onMain { connected.playWhenReady })
         assertFalse(onMain { connected.isPlaying })
         assertEquals(0, onMain { connected.currentMediaItemIndex })
         assertWithin(expected = CHECKPOINT_MS, actual = onMain { connected.currentPosition }, tolerance = 50L)
         assertWithin(expected = PART_ONE_DURATION_MS, actual = onMain { connected.duration }, tolerance = 20L)
+        assertEquals(CHECKPOINT_SPEED, onMain { connected.playbackParameters.speed }, 0.01f)
 
         val positionBeforePlay = onMain { connected.currentPosition }
         onMain { connected.play() }
@@ -125,21 +132,57 @@ class TwoPartBookPlaybackE2ETest {
                 onMain { connected.currentMediaItemIndex == 1 && connected.playWhenReady }
             },
         )
-        onMain { connected.pause() }
         assertWithin(expected = PART_TWO_DURATION_MS, actual = onMain { connected.duration }, tolerance = 20L)
+        assertTrue(
+            "part transition checkpoint did not get a bounded interval to flush",
+            waitUntil(timeoutMs = 2_000L) { onMain { bookPosition(connected) >= 3_600L } },
+        )
+        val positionBeforeKill = onMain { bookPosition(connected) }
 
-        onMain { connected.seekTo(0, 0L) }
+        onMain { connected.release() }
+        controller = null
+        killPlaybackProcess()
+
+        val checkpointAfterKill = readCheckpoint()
+        assertFalse(checkpointAfterKill.lastPlayingIntent)
+        assertEquals(CHECKPOINT_SPEED, checkpointAfterKill.speed, 0.01f)
         assertTrue(
-            "controller did not acknowledge reset to part 1",
-            waitUntil(timeoutMs = 2_000L) { onMain { connected.currentMediaItemIndex == 0 } },
+            "the active part transition checkpoint was not persisted",
+            checkpointAfterKill.positionMs >= PART_ONE_DURATION_MS,
         )
-        onMain { connected.seekToNextMediaItem() }
         assertTrue(
-            "skip did not select the second media item",
-            waitUntil(timeoutMs = 2_000L) { onMain { connected.currentMediaItemIndex == 1 } },
+            "checkpoint loss must be nonnegative and bounded after unclean process death",
+            positionBeforeKill - checkpointAfterKill.positionMs in 0L..MAX_FORCE_STOP_LOSS_MS,
         )
-        assertWithin(expected = 0L, actual = onMain { connected.currentPosition }, tolerance = 100L)
-        assertFalse(onMain { connected.playWhenReady })
+
+        val restored = connectController()
+        controller = restored
+        assertTrue(
+            "service did not cold-restore after its playback process was killed",
+            waitUntil(timeoutMs = 10_000L) {
+                onMain {
+                    restored.mediaItemCount == 2 && restored.playbackState == Player.STATE_READY
+                }
+            },
+        )
+        assertFalse(onMain { restored.playWhenReady })
+        assertFalse(onMain { restored.isPlaying })
+        assertEquals(CHECKPOINT_SPEED, onMain { restored.playbackParameters.speed }, 0.01f)
+        assertWithin(
+            expected = checkpointAfterKill.positionMs,
+            actual = onMain { bookPosition(restored) },
+            tolerance = 100L,
+        )
+
+        val restoredPosition = onMain { bookPosition(restored) }
+        onMain { restored.play() }
+        assertTrue(
+            "explicit play did not advance after killed-process cold restore",
+            waitUntil(timeoutMs = 5_000L) {
+                onMain { restored.isPlaying && bookPosition(restored) >= restoredPosition + 150L }
+            },
+        )
+        onMain { restored.pause() }
     }
 
     private fun connectController(): MediaController {
@@ -186,11 +229,56 @@ class TwoPartBookPlaybackE2ETest {
                     bookId = BOOK_ID,
                     positionMs = CHECKPOINT_MS,
                     lastPlayedAt = importedAt,
-                    speed = 1.0f,
-                    lastPlayingIntent = true,
+                    speed = CHECKPOINT_SPEED,
+                    lastPlayingIntent = false,
                 ),
             ),
         )
+    }
+
+    private fun readCheckpoint(): PlaybackCheckpointEntity {
+        val reopened = AudioApeDatabase.create(context, testDatabaseName)
+        return try {
+            runBlocking { requireNotNull(reopened.playbackCheckpointDao().checkpoint(BOOK_ID)) }
+        } finally {
+            reopened.close()
+        }
+    }
+
+    private fun bookPosition(connected: MediaController): Long =
+        when (connected.currentMediaItemIndex) {
+            0 -> connected.currentPosition
+            1 -> PART_ONE_DURATION_MS + connected.currentPosition
+            else -> error("unexpected media item index ${connected.currentMediaItemIndex}")
+        }
+
+    private fun killPlaybackProcess() {
+        val pid = requireNotNull(playbackPid()) { "playback process was not running" }
+        readShellCommand("am crash $pid")
+        assertTrue(
+            "playback process $pid survived the injected process crash",
+            waitUntil(timeoutMs = 5_000L) { playbackPid() != pid },
+        )
+    }
+
+    private fun killPlaybackProcessIfRunning() {
+        playbackPid()?.let { pid ->
+            readShellCommand("am crash $pid")
+            waitUntil(timeoutMs = 5_000L) { playbackPid() != pid }
+        }
+    }
+
+    private fun playbackPid(): Int? =
+        readShellCommand("pidof $PLAYBACK_PROCESS_NAME")
+            .trim()
+            .split(Regex("\\s+"))
+            .firstOrNull { it.isNotEmpty() }
+            ?.toIntOrNull()
+
+    private fun readShellCommand(command: String): String {
+        val descriptor: ParcelFileDescriptor =
+            InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+        return descriptor.use { FileInputStream(it.fileDescriptor).bufferedReader().use { reader -> reader.readText() } }
     }
 
     private fun mediaPart(
@@ -254,6 +342,9 @@ class TwoPartBookPlaybackE2ETest {
         const val PART_ONE_DURATION_MS = 3_000L
         const val PART_TWO_DURATION_MS = 4_000L
         const val TOTAL_DURATION_MS = 7_000L
-        const val CHECKPOINT_MS = 1_000L
+        const val CHECKPOINT_MS = 2_750L
+        const val CHECKPOINT_SPEED = 1.5f
+        const val MAX_FORCE_STOP_LOSS_MS = 1_500L
+        const val PLAYBACK_PROCESS_NAME = "com.audioape.player:playback"
     }
 }

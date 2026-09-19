@@ -7,6 +7,7 @@ import com.audioape.core.model.BookTimeline
 data class PlaybackStart(
     val mediaItemIndex: Int,
     val positionMs: Long,
+    val speed: Float,
     val playWhenReady: Boolean,
 )
 
@@ -24,7 +25,10 @@ object PlaybackRestorePlanner {
         return PlaybackStart(
             mediaItemIndex = partPosition?.partIndex ?: 0,
             positionMs = partPosition?.localOffsetMilliseconds ?: 0L,
+            speed = checkpoint?.speed ?: DEFAULT_PLAYBACK_SPEED,
             playWhenReady = false,
         )
     }
+
+    private const val DEFAULT_PLAYBACK_SPEED = 1.0f
 }
