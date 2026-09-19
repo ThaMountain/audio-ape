@@ -1,0 +1,389 @@
+{
+  "generatedAt": "2026-09-19",
+  "provider": "LibriVox",
+  "count": 12,
+  "fixtures": [
+    {
+      "workId": "47",
+      "title": "Count of Monte Cristo",
+      "authors": [
+        "Alexandre Dumas"
+      ],
+      "edition": {
+        "editionId": "47",
+        "narrator": "Kristin LeMoine, Gord Mackenzie, Betsie Bush, Jc Guan, J. M. Smallheer, Chip, wolvrin, Lizzie Driver, R. Francis Smith, Vicki Barbour, Nathalie J., Ransom, Justin Brett, telkins, Ana Simão, Anka, featherheadfop, Lady Maria, vrk74, Jennifer Stearns, rakkar, Luisa Hall, Ruth Golding, Annise, Philippa, Heather Duncan, Caitlin Kelly, Kristine Bekere, Westwinds12, David Jaquay, Kirsten Ferreri, Ophelia Darcy, George Coutts, Lucy Burgoyne (1950-2014), |CBW|Simon, Paul-Gabriel Wiener, Faris, Dan Threetrees, Robin Cotter, chriss the girl, bozgeez, Julie Bynum, Clarke Bell, Mark Nelson, Thomas Wells, Aruna, Catherine Fitz, Alex Foster, Jenilee, Adam M Smith, Denny Sayers (d. 2015), Kevin McAsh, Kevin O'Coin, Sam Fold, Nichole Karl, Christie Nowak, Claire Goget, Ernst Schnell, Kurt Copeland, Monika Bruss, Tammy Sanders, Seth P. Mariscal, katyleah",
+        "language": "English",
+        "durationMs": 178995000,
+        "abridged": false,
+        "description": "The Count of Monte Cristo (French: Le Comte de Monte-Cristo) is an adventure novel by Alexandre Dumas, père. It is often considered, along with The Three Musketeers, as Dumas's most popular work. The writing of the work was completed in 1844. Like many of his novels, it is expanded from the plot outlines suggested by his collaborating ghostwriter Auguste Maquet. The story takes place in France, Italy, islands in the Mediterranean and the Levant during the historical events of 1815–1838 (from just before the Hundred Days through the reign of Louis-Philippe of France). The historical setting is a fundamental element of the book. It is primarily concerned with themes of justice, vengeance, mercy, and forgiveness, and is told in the style of an adventure story. (Summary from Wikipedia) This book contains alternate versions of a number of chapters – indicated by an alt after the file number. The Zip files contain both versions of these chapters. There are 2 versions of the M4Bs made , one containing the original files for these chapters (4 parts), the other containing the alternate files for the chapters (5 parts).",
+        "coverUrl": "https://www.archive.org/download/LibrivoxCdCoverArt12/Count_Monte_Cristo_1110.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 128,
+          "firstTrackAudioUrl": "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_001_dumas_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_001_dumas_64kb.mp3",
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_002_dumas_64kb.mp3",
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_003_dumas_64kb.mp3",
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_004_dumas_64kb.mp3",
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_005_dumas_64kb.mp3",
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_006_dumas_64kb.mp3",
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_007_dumas_64kb.mp3",
+            "https://www.archive.org/download/count_monte_cristo_0711_librivox/count_of_monte_cristo_008_dumas_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/count_monte_cristo_0711_librivox/formats=64KBPS MP3&file=/count_monte_cristo_0711_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=47&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "53",
+      "title": "Bleak House",
+      "authors": [
+        "Charles Dickens"
+      ],
+      "edition": {
+        "editionId": "53",
+        "narrator": "Cynthia Lyons (1946-2011)",
+        "language": "English",
+        "durationMs": 156619000,
+        "abridged": false,
+        "description": "Bleak House is the ninth novel by Charles Dickens, published in 20 monthly parts between March 1852 and September 1853. It is widely held to be one of Dickens' finest and most complete novels, containing one of the most vast, complex and engaging arrays of minor characters and sub-plots in his entire canon. Dickens tells all of these both through the narrative of the novel's heroine, Esther Summerson, and as an omniscient narrator. Memorable characters include the menacing lawyer Tulkinghorn, the friendly but depressive John Jarndyce and the childish Harold Skimpole. The plot concerns a long-running legal dispute (Jarndyce and Jarndyce) which has far-reaching consequences for all involved. (Summary from Wikipedia)",
+        "coverUrl": "https://www.archive.org/download/LibrivoxCdCoverArt/Bleak_House_1003.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 67,
+          "firstTrackAudioUrl": "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_01_dickens_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_01_dickens_64kb.mp3",
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_02_dickens_64kb.mp3",
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_03_dickens_64kb.mp3",
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_04_dickens_64kb.mp3",
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_05_dickens_64kb.mp3",
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_06_dickens_64kb.mp3",
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_07_dickens_64kb.mp3",
+            "https://www.archive.org/download/bleak_house_cl_librivox/bleak_house_08_dickens_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/bleak_house_cl_librivox/formats=64KBPS MP3&file=/bleak_house_cl_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=53&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "57",
+      "title": "Twenty Years After",
+      "authors": [
+        "Alexandre Dumas"
+      ],
+      "edition": {
+        "editionId": "57",
+        "narrator": "Esther, Kirsten Ferreri, David Collins, Anna Simon, Paul-Gabriel Wiener, Eileen George, Cori Samuel, Robert Flach, Great Plains, Clarke Bell, LilianaVale, Ben Cobbett, Melissa, Will Larson, Julie Bynum, Annise, David Pittard, Jennifer Stearns, Caleb Dillehay, Kristine Bekere, leetcr, Kevin Kivikko, Gesine, Kristin LeMoine",
+        "language": "English",
+        "durationMs": 92588000,
+        "abridged": false,
+        "description": "Let's continue the D'Artagnan Romances that we've already started with The Three Musketeers.",
+        "coverUrl": "https://www.archive.org/download/librivox_cd_covers/twenty_years_after.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 90,
+          "firstTrackAudioUrl": "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_01_dumas_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_01_dumas_64kb.mp3",
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_02_dumas_64kb.mp3",
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_03_dumas_64kb.mp3",
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_04_dumas_64kb.mp3",
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_05_dumas_64kb.mp3",
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_06_dumas_64kb.mp3",
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_07_dumas_64kb.mp3",
+            "https://www.archive.org/download/twentyyearsafter_0904_librivox/twentyyearsafter_08_dumas_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/twentyyearsafter_0904_librivox/formats=64KBPS MP3&file=/twentyyearsafter_0904_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=57&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "59",
+      "title": "Adventures of Huckleberry Finn",
+      "authors": [
+        "Mark Twain"
+      ],
+      "edition": {
+        "editionId": "59",
+        "narrator": "Annie Coleman Rothenberg",
+        "language": "English",
+        "durationMs": 38527000,
+        "abridged": false,
+        "description": "Adventures of Huckleberry Finn (1884) by Mark Twain is one of the truly great American novels, beloved by children, adults, and literary critics alike. The book tells the story of “Huck” Finn (first introduced as Tom Sawyer’s sidekick in The Adventures of Tom Sawyer), his friend Jim, and their journey down the Mississippi River on a raft. Both are on the run, Huck from his drunk and abusive father, and Jim as a runaway slave. As Huck and Jim drift down the river, they meet many colorful characters and have many great adventures. The true heart of the story, however, is the friendship between Huck and Jim. A constant theme throughout the book is Huck’s internal struggle between what he has been taught, that helping a runaway slave is a sin, and what he truly believes, that Jim is a good man and it couldn’t possibly be wrong to help him. Adventures of Huckleberry Finn was unique at the time of its publication (1884) because it is narrated by Huck himself and is written in the numerous dialects common in the area and time in which the book is set. Although the book was originally intended as a sequel to the children’s book The Adventures of Tom Sawyer, as Twain wrote Adventures of Huckleberry Finn it progressed into a more serious work. Twain’s views on slavery and other social issues of the time become clear through the words, thoughts, and actions of Huck Finn. The book has always been the subject of great controversy, and according to The American Library Association it was fifth on the list of most frequently challenged books in the 1990s. (Summary by Annie Coleman)",
+        "coverUrl": "https://archive.org/download/huck_finn_librivox/Huck_Finn.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 43,
+          "firstTrackAudioUrl": "https://www.archive.org/download/huck_finn_librivox/huckfinn_01_twain_apc_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_01_twain_apc_64kb.mp3",
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_02_twain_apc_64kb.mp3",
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_03_twain_apc_64kb.mp3",
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_04_twain_apc_64kb.mp3",
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_05_twain_apc_64kb.mp3",
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_06_twain_apc_64kb.mp3",
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_07_twain_apc_64kb.mp3",
+            "https://www.archive.org/download/huck_finn_librivox/huckfinn_08_twain_apc_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/huck_finn_librivox/formats=64KBPS MP3&file=/huck_finn_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=59&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "64",
+      "title": "Heart of Darkness",
+      "authors": [
+        "Joseph Conrad"
+      ],
+      "edition": {
+        "editionId": "64",
+        "narrator": "Kristin LeMoine",
+        "language": "English",
+        "durationMs": 15012000,
+        "abridged": false,
+        "description": "Set in a time of oppressive colonisation, when large areas of the world were still unknown to Europe, and Africa was literally on maps and minds as a mysterious shadow, Heart of Darkness famously explores the rituals of civilisation and barbarism, and the frighteningly fine line between them. We get the tale through a classic unreliable narrator, relating as Marlow, a ship’s captain, tells how he was sent by the Company to retrieve the wayward Kurtz, and was shaken to discover the true depths of darkness in that creature’s, and in his own, soul. Conrad based the work closely on his own terrible experience in the Congo. This work has been reinterpreted and adapted into many modern forms, the most well known being the film Apocalypse Now. (Summary written by Marlo Dianne)",
+        "coverUrl": "https://archive.org/download/heart_of_darkness/Heart_of_Darkness.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 6,
+          "firstTrackAudioUrl": "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_1a_conrad_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_1a_conrad_64kb.mp3",
+            "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_1b_conrad_64kb.mp3",
+            "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_2a_conrad_64kb.mp3",
+            "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_2b_conrad_64kb.mp3",
+            "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_3a_conrad_64kb.mp3",
+            "https://www.archive.org/download/heart_of_darkness/heart_of_darkness_3b_conrad_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/heart_of_darkness/formats=64KBPS MP3&file=/heart_of_darkness.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=64&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "65",
+      "title": "Odyssey",
+      "authors": [
+        "Homer"
+      ],
+      "edition": {
+        "editionId": "65",
+        "narrator": "Kirsten Ferreri, TriciaG, JemmaBlythe, Gesine, Hugh McGuire, ontheroad, Reynard T. Fox, Robin Cotter, David Barnes, Kurt Wong, Moira Fogarty, hugh mac, Kara Shallenberg (1969-2023), Chris Hawk, Denny Sayers (d. 2015)",
+        "language": "English",
+        "durationMs": 40705000,
+        "abridged": false,
+        "description": "The Odyssey is one of the two major ancient Greek epic poems (the other being the Iliad), attributed to the poet Homer. The poem is commonly dated to between 800 and 600 BC. The poem is, in part, a sequel to the Iliad, and concerns the events that befall the Greek hero Odysseus in his long journey back to his native land Ithaca after the fall of Troy. It takes Odysseus ten years to return to his native land of Ithaca after ten years of war; during his 20-year absence, his son Telemachus and his wife Penelope must deal with a group of unruly suitors who have moved into Odysseus' home to compete for Penelope's hand in marriage, since most have assumed that Odysseus has died. The poem is a fundamental text in the Western canon and continues to be read in both Homeric Greek and translations around the world. (Summary from Wikipedia)",
+        "coverUrl": "https://www.archive.org/download/librivox_cd_covers/odyssey.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 24,
+          "firstTrackAudioUrl": "https://www.archive.org/download/odyssey_butler_librivox/odyssey_01_homer_butler_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_01_homer_butler_64kb.mp3",
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_02_homer_butler_64kb.mp3",
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_03_homer_butler_64kb.mp3",
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_04_homer_butler_64kb.mp3",
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_05_homer_butler_64kb.mp3",
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_06_homer_butler_64kb.mp3",
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_07_homer_butler_64kb.mp3",
+            "https://www.archive.org/download/odyssey_butler_librivox/odyssey_08_homer_butler_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/odyssey_butler_librivox/formats=64KBPS MP3&file=/odyssey_butler_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=65&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "75",
+      "title": "Uncle Tom's Cabin",
+      "authors": [
+        "Harriet Beecher Stowe"
+      ],
+      "edition": {
+        "editionId": "75",
+        "narrator": "John Greenman",
+        "language": "English",
+        "durationMs": 65193000,
+        "abridged": false,
+        "description": "Among the most “banned” books in the United States, Uncle Tom’s Cabin; or, Life Among the Lowly is a novel by American author Harriet Beecher Stowe which treats slavery as a central theme. Stowe was a Connecticut-born teacher at the Hartford Female Academy and an active abolitionist. The novel is believed to have had a profound effect on the North’s view of slavery. In fact, when he met Harriet Beecher Stowe, President Lincoln is said to have commented, “So you’re the little lady whose book started the Civil War.” First published on March 20, 1852, the story focuses on the tale of Uncle Tom, a long-suffering black slave, the central character around whose life the other characters—both fellow slaves and slave owners—revolve. The novel depicts the harsh reality of slavery while also showing that Christian love and faith can overcome even something as evil as enslavement of fellow human beings. (summary by Wikipedia and John Greenman) Note From the Reader: The listener is about to enter a world rich with diverse characters. In order to differentiate between the characters, the reader has given each, his/her own voice. As an adult male reader, however, the reader's representation of women and children will, necessarily be less than adequate. He asks for your indulgence.",
+        "coverUrl": "https://archive.org/download/uncle_toms_cabin_librivox/Uncle_Toms_Cabin_1006.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 45,
+          "firstTrackAudioUrl": "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_01_stowe_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_01_stowe_64kb.mp3",
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_02_stowe_64kb.mp3",
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_03_stowe_64kb.mp3",
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_04_stowe_64kb.mp3",
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_05_stowe_64kb.mp3",
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_06_stowe_64kb.mp3",
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_07_stowe_64kb.mp3",
+            "https://www.archive.org/download/uncle_toms_cabin_librivox/uncletom_08_stowe_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/uncle_toms_cabin_librivox/formats=64KBPS MP3&file=/uncle_toms_cabin_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=75&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "86",
+      "title": "Emma",
+      "authors": [
+        "Jane Austen"
+      ],
+      "edition": {
+        "editionId": "86",
+        "narrator": "Sherry Crowther",
+        "language": "English",
+        "durationMs": 64950000,
+        "abridged": false,
+        "description": "Sherry reads Jane Austen’s sparkling comedy of manners with wit and vivacity, and brings the characters to life. Mr. Woodhouse worries and frets, Miss Bates chatters on, and Emma blithely manipulates and misunderstands her friends and family until she finally learns her lesson! (Summary by Kara)",
+        "coverUrl": "https://archive.org/download/emma_solo_librivox/Emma_Solo_1105.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 55,
+          "firstTrackAudioUrl": "https://www.archive.org/download/emma_solo_librivox/emma_01_01_austen_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_01_austen_64kb.mp3",
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_02_austen_64kb.mp3",
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_03_austen_64kb.mp3",
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_04_austen_64kb.mp3",
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_05_austen_64kb.mp3",
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_06_austen_64kb.mp3",
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_07_austen_64kb.mp3",
+            "https://www.archive.org/download/emma_solo_librivox/emma_01_08_austen_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/emma_solo_librivox/formats=64KBPS MP3&file=/emma_solo_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=86&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "94",
+      "title": "Wind in the Willows",
+      "authors": [
+        "Kenneth Grahame"
+      ],
+      "edition": {
+        "editionId": "94",
+        "narrator": "Peter Yearsley, Meredith Hughes, Kara Shallenberg (1969-2023), Betsie Bush, Vinny Bove, Chip, Denny Sayers (d. 2015), Peter Eastman, Kymm Zuckert, Kirsten Ferreri, Catharine Eastman",
+        "language": "English",
+        "durationMs": 23407000,
+        "abridged": false,
+        "description": "This much-loved story follows a group of animal friends in the English countryside as they pursue adventure … and as adventure pursues them! The chief characters - Mole, Rat, and Toad - generally lead upbeat and happy lives, but their tales are leavened with moments of terror, homesickness, awe, madcap antics, and derring-do. Although classed as children’s literature, The Wind in the Willows holds a gentle fascination for adults too. The vocabulary is decidedly not “Dick and Jane”, and a reader with a love of words will find new ones to treasure, even if well-equipped for the journey. Parents will appreciate the themes of loyalty, manners, self-restraint, and comradeship which are evident throughout the book. When the characters err, they are prompt to acknowledge it, and so a reading of this book can model good behavior to children, who will otherwise be enchanted with the many ways in which the lives of these bucolic characters differ from modern life. This book was so successful that it enabled the author to retire from banking and take up a country life somewhat like that of his creations. It has been adapted for screen, stage, and even a ride at the original Disneyland. (Summary by Mark F. Smith)",
+        "coverUrl": "https://archive.org/download/wind_in_the_willows_collab_librivox/Wind_Willows_1105.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 12,
+          "firstTrackAudioUrl": "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_01_grahame_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_01_grahame_64kb.mp3",
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_02_grahame_64kb.mp3",
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_03_grahame_64kb.mp3",
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_04_grahame_64kb.mp3",
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_05_grahame_64kb.mp3",
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_06_grahame_64kb.mp3",
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_07_grahame_64kb.mp3",
+            "https://www.archive.org/download/wind_in_the_willows_collab_librivox/wind_in_the_willows_08_grahame_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/wind_in_the_willows_collab_librivox/formats=64KBPS MP3&file=/wind_in_the_willows_collab_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=94&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "97",
+      "title": "Lord Jim",
+      "authors": [
+        "Joseph Conrad"
+      ],
+      "edition": {
+        "editionId": "97",
+        "narrator": "Stewart Wills",
+        "language": "English",
+        "durationMs": 51917000,
+        "abridged": false,
+        "description": "A classic of early literary modernism, Lord Jim tells the story of a young \"simple and sensitive character\" who loses his honor in a display of cowardice at sea -- and of his expiation of that sin against his own \"shadowy ideal of conduct\" on the remote island of Patusan. The novel, written by Conrad for magazine serialization during an intense and chaotic ten months in 1899 and 1900, has, in the words of Thomas C. Moser, \"the rare distinction of being a masterpiece in two separate genres. It is at once an exotic adventure story of the Eastern seas in the popular tradition of Kipling and Stevenson and a complexly wrought 'art novel' in the tradition of Flaubert and James. (summary by Stewart Wills)",
+        "coverUrl": "https://archive.org/download/lord_jim_librivox/Lord_Jim_1002.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 30,
+          "firstTrackAudioUrl": "https://www.archive.org/download/lord_jim_librivox/lordjim_01_conrad_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_01_conrad_64kb.mp3",
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_02_conrad_64kb.mp3",
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_03_conrad_64kb.mp3",
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_04_conrad_64kb.mp3",
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_05_conrad_64kb.mp3",
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_06_conrad_64kb.mp3",
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_07_conrad_64kb.mp3",
+            "https://www.archive.org/download/lord_jim_librivox/lordjim_08_conrad_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/lord_jim_librivox/formats=64KBPS MP3&file=/lord_jim_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=97&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "120",
+      "title": "Three Musketeers",
+      "authors": [
+        "Alexandre Dumas"
+      ],
+      "edition": {
+        "editionId": "120",
+        "narrator": "Kristin LeMoine, Mark F. Smith, R. Francis Smith, shanda_w, Kevin Kivikko, David Barnes, Simon Taylor, Meredith Hughes, Kirsten Ferreri, Gesine, Clarke Bell, Thomas Davoren, firefly, chriss the girl, Anna Simon, Astreja Odinsdóttir, BLRossow, Urszula Pokojska, Jim Mowatt, Robin Cotter, J. M. Smallheer, Rick Measham, Susan Denney, Tamara R. Schwartz, Catharine Eastman, JemmaBlythe, Ezwa",
+        "language": "English",
+        "durationMs": 89386000,
+        "abridged": false,
+        "description": "The Three Musketeers (Les Trois Mousquetaires) is a novel by Alexandre Dumas, père. It recounts the adventures of a young man named d'Artagnan after he leaves home to become a musketeer. D'Artagnan is not one of the musketeers of the title; those are his friends Athos, Porthos, and Aramis -- inseparable friends who live by the motto, \"One for all, and all for one\". The Three Musketeers was first published in serial form in the magazine Le Siècle between March and July 1844. Dumas claimed it was based on manuscripts he had discovered in the Bibliothèque Nationale. It was later proven that Dumas had based his work on the book Mémoires de Monsieur D'Artagnan, capitaine lieutenant de la première compagnie des Mousquetaires du Roi (Memoirs of Mister D'Artagnan, Lieutenant Captain of the first company of the King's Musketeers) by Gatien de Courtilz de Sandras (Cologne, 1700). Dumas' version of the story covers the adventures of D'Artagnan and his friends from 1625 to 1628, as they are involved in intrigues involving the weak King Louis XIII of France, his powerful and cunning advisor Cardinal Richelieu, the beautiful Queen Anne of Austria, her English lover, George Villiers, 1st Duke of Buckingham, and the Siege of La Rochelle. Adding to the intrigue are the mysterious Milady de Winter, and Richelieu's right-hand man, the Comte de Rochefort. (summary from wikipedia) Get Twenty Years After here. Get The Man in the Iron Mask here.",
+        "coverUrl": "https://www.archive.org/download/librivox_cd_covers/three_musketeers.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 69,
+          "firstTrackAudioUrl": "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_00_dumas_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_00_dumas_64kb.mp3",
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_01_dumas_64kb.mp3",
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_02_dumas_64kb.mp3",
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_03_dumas_64kb.mp3",
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_04_dumas_64kb.mp3",
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_05_dumas_64kb.mp3",
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_06_dumas_64kb.mp3",
+            "https://www.archive.org/download/three_musketeers_0712_librivox/three_musketeers_07_dumas_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/three_musketeers_0712_librivox/formats=64KBPS MP3&file=/three_musketeers_0712_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=120&format=json&extended=1&coverart=1"
+      }
+    },
+    {
+      "workId": "133",
+      "title": "Jane Eyre",
+      "authors": [
+        "Charlotte Brontë"
+      ],
+      "edition": {
+        "editionId": "133",
+        "narrator": "Cagirlwithasoutherndrawl, Kristin Hughes (1974-2021), Kymm Zuckert, Laurie Anne Walden, Kristin LeMoine, Jennifer Stearns, David Barnes, Cori Samuel, Kirsten Ferreri, Sarah Key-DeLyria, Peter of Buckinghamshire England, Maria Elmvang, Lizzie Driver, Gesine, Ezwa, Lucy Burgoyne (1950-2014), Becky Miller, Judy Bieber, Betsie Bush, Catharine Eastman, Michelle Crandall",
+        "language": "English",
+        "durationMs": 74196000,
+        "abridged": false,
+        "description": "Jane Eyre is not your typical romance. It is a story of a woman who struggles with a world in which she doesn't quite fit. Once finished with her schooling, and with no family that really cares of her she strikes out on her own as a governess. Jane Eyre searches for love, someone to care for her, and someone to care for, and finds it in unexpected places. (summary by Kri)",
+        "coverUrl": "https://www.archive.org/download/LibrivoxCdCoverArt10/Jane_Eyre_1108.jpg",
+        "confirmedAudioEvidence": {
+          "sectionAudioCount": 39,
+          "firstTrackAudioUrl": "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_00_bronte_64kb.mp3",
+          "sampleTrackUrls": [
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_00_bronte_64kb.mp3",
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_01_bronte_64kb.mp3",
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_02_bronte_64kb.mp3",
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_03_bronte_64kb.mp3",
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_04_bronte_64kb.mp3",
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_05_bronte_64kb.mp3",
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_06_bronte_64kb.mp3",
+            "https://www.archive.org/download/jane_eyre_librivox/jane_eyre_07_bronte_64kb.mp3"
+          ],
+          "fullBookZipUrl": "https://archive.org/compress/jane_eyre_librivox/formats=64KBPS MP3&file=/jane_eyre_librivox.zip"
+        },
+        "provenance": "https://librivox.org/api/feed/audiobooks/?id=133&format=json&extended=1&coverart=1"
+      }
+    }
+  ]
+}
