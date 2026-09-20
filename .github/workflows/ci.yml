@@ -35,8 +35,26 @@ jobs:
       - name: Run Android lint
         run: ./gradlew :app:lintDebug
 
-      - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest
+      - name: Run unit tests (ALL modules)
+        run: |
+          ./gradlew \
+            :core:model:test \
+            :core:database:testDebugUnitTest \
+            :core:storage:testDebugUnitTest \
+            :plugin:protocol:test \
+            :plugin:fixtures:test \
+            :plugin:host:testDebugUnitTest \
+            :app:testDebugUnitTest
+
+      - name: Upload unit test reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: audio-ape-unit-test-reports
+          if-no-files-found: ignore
+          path: |
+            **/build/test-results/**/*.xml
+            **/build/reports/tests/**
 
       - name: Upload build evidence
         if: always()

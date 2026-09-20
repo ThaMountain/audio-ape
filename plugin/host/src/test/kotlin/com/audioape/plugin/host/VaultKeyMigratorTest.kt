@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -238,6 +239,274 @@ class VaultKeyMigratorTest {
         )
     }
 
+    /**
+     * CRASH MATRIX (reviewer item 4): inject a process-death at EVERY named checkpoint, then run
+     * a fresh migrator. Acceptance: the recovery run must converge to exactly one safe state —
+     * fully migrated and readable under the OS key (master gone, marker present, no residue) —
+     * and must NEVER delete the master while any live backup remains.
+     */
+    @Test
+    fun everyCrashCheckpointConvergesToFullyMigratedState() {
+        for (checkpoint in MigrationCheckpoint.entries) {
+            val dir = tmp.newFolder("cp-${checkpoint.name}")
+            val legacy = FakeVaultKeyRing()
+            val target = FakeVaultKeyRing()
+            seedVault(dir, legacy)
+
+            val crashing = VaultKeyMigrator(dir, legacy, target)
+            crashing.checkpointHook = { point ->
+                if (point == checkpoint) throw SimulatedCrash()
+            }
+            try {
+                crashing.migrateAll()
+                fail("expected SimulatedCrash at $checkpoint")
+            } catch (expected: SimulatedCrash) {
+                // crash looks like a crash: nothing cleaned up by the dead process
+            }
+
+            val recovery = VaultKeyMigrator(dir, legacy, target)
+            val report = recovery.migrateAll()
+
+            assertTrue("[$checkpoint] recovery must succeed: $report", report.succeeded)
+            assertFalse("[$checkpoint] legacy master must be gone", File(dir, FileBackedKeyRing.MASTER_KEY_FILE_NAME).exists())
+            assertTrue("[$checkpoint] completion marker must exist", File(dir, COMPLETION_MARKER_NAME).exists())
+            assertFalse("[$checkpoint] no migration residue", residue(dir).isNotEmpty())
+            assertTrue(
+                "[$checkpoint] master deleted only with no live backup",
+                !report.masterKeyDeleted || dir.listFiles().orEmpty().none { it.name.endsWith(".bak-migrating") },
+            )
+            for (digest in listOf(DIGEST_A, DIGEST_B)) {
+                val records = readCiphertextFile(File(dir, "vault.$digest.bin")).records
+                records.forEach { (id, blob) ->
+                    val plaintext = CipherBlob.decrypt(blob, target.getOrCreatePluginKey(digest), digest)
+                    assertNotNull("[$checkpoint] $id of $digest must decrypt under the OS key", plaintext)
+                    assertEquals(
+                        "[$checkpoint] $id of $digest must equal the original",
+                        secret(id).toList(),
+                        plaintext!!.toList(),
+                    )
+                }
+            }
+        }
+    }
+
+    /** Reviewer item 2: a SECOND migrateAll() after success is a verified no-op. */
+    @Test
+    fun secondCallAfterSuccessfulMigrationIsAVerifiedNoOp() {
+        val dir = tmp.newFolder("vault-idempotent")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedVault(dir, legacy)
+
+        val first = VaultKeyMigrator(dir, legacy, target).migrateAll()
+        assertTrue("first migration must succeed: $first", first.succeeded)
+
+        val second = VaultKeyMigrator(dir, legacy, target).migrateAll()
+        assertTrue("second migration must succeed as a no-op: $second", second.succeeded)
+        assertTrue("second run must report alreadyComplete", second.alreadyComplete)
+        assertEquals("second run must migrate nothing", 0, second.migratedFiles)
+        assertEquals("second run must re-key nothing", 0, second.rekeyedRecords)
+
+        // Nothing recreated, nothing regenerated: no master, no new keys, no residue.
+        assertFalse("master must NOT be recreated", File(dir, FileBackedKeyRing.MASTER_KEY_FILE_NAME).exists())
+        assertFalse("no new target key may appear", target.hasKey(DIGEST_C))
+        assertTrue("credentials must still read under the OS ring", target.hasKey(DIGEST_A) && target.hasKey(DIGEST_B))
+        assertFalse("no migration residue after the second run", residue(dir).isNotEmpty())
+
+        for (digest in listOf(DIGEST_A, DIGEST_B)) {
+            val records = readCiphertextFile(File(dir, "vault.$digest.bin")).records
+            records.forEach { (id, blob) ->
+                assertEquals(
+                    secret(id).toList(),
+                    CipherBlob.decrypt(blob, target.getOrCreatePluginKey(digest), digest)!!.toList(),
+                )
+            }
+        }
+    }
+
+    /** Reviewer item 2: completion marker with a stray backup surfaces as explicit failure. */
+    @Test
+    fun completionMarkerWithStrayBackupIsExplicitFailureNotSilentContinue() {
+        val dir = tmp.newFolder("vault-marker-backup")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedVault(dir, legacy)
+        assertTrue(VaultKeyMigrator(dir, legacy, target).migrateAll().succeeded)
+
+        writeCiphertextFile(
+            File(dir, "vault.$DIGEST_A.bin.bak-migrating"),
+            linkedMapOf("tok" to CipherBlob(ByteArray(12), ByteArray(4), ByteArray(16))),
+        )
+        val rerun = VaultKeyMigrator(dir, legacy, target).migrateAll()
+
+        assertFalse("marker + stray backup must FAIL, not continue", rerun.succeeded)
+        assertTrue("failure must be the inconsistent-state error", rerun.migratorFailure is IllegalStateException)
+        assertTrue("stray backup must remain untouched", File(dir, "vault.$DIGEST_A.bin.bak-migrating").exists())
+    }
+
+    /** Reviewer item 2: completion marker with a reappeared master surfaces as explicit failure. */
+    @Test
+    fun completionMarkerWithRecoveredMasterIsExplicitFailure() {
+        val dir = tmp.newFolder("vault-marker-master")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedVault(dir, legacy)
+        assertTrue(VaultKeyMigrator(dir, legacy, target).migrateAll().succeeded)
+
+        Files.write(File(dir, FileBackedKeyRing.MASTER_KEY_FILE_NAME).toPath(), ByteArray(32) { 9 })
+        val rerun = VaultKeyMigrator(dir, legacy, target).migrateAll()
+
+        assertFalse("marker + reappeared master must FAIL", rerun.succeeded)
+        assertTrue(rerun.migratorFailure is IllegalStateException)
+    }
+
+    /** Reviewer item 1: crash after markDone() but BEFORE backup deletion -> recovery cleans up. */
+    @Test
+    fun doneWithLeftoverBackupIsCleanedUpOnRecovery() {
+        val dir = tmp.newFolder("vault-done-backup")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedSingle(dir, legacy, DIGEST_A)
+
+        // Crash exactly between journal.markDone() and Files.deleteIfExists(backup).
+        val crashing = VaultKeyMigrator(dir, legacy, target)
+        var fired = false
+        crashing.checkpointHook = { point ->
+            if (point == MigrationCheckpoint.BEFORE_BACKUP_DELETE && !fired) {
+                fired = true
+                throw SimulatedCrash()
+            }
+        }
+        try {
+            crashing.migrateAll()
+            fail("expected SimulatedCrash at BEFORE_BACKUP_DELETE")
+        } catch (expected: SimulatedCrash) {
+            // process died; backup still on disk, journal DONE, final OS-encrypted
+        }
+
+        val recovery = VaultKeyMigrator(dir, legacy, target)
+        val report = recovery.migrateAll()
+
+        assertTrue("DONE+backup recovery must succeed: $report", report.succeeded)
+        assertFalse("leftover backup must be removed", File(dir, "vault.$DIGEST_A.bin.bak-migrating").exists())
+        assertTrue("master must be deleted after full cleanup", report.masterKeyDeleted)
+        assertTrue("completion marker must be created", File(dir, COMPLETION_MARKER_NAME).exists())
+        val records = readCiphertextFile(File(dir, "vault.$DIGEST_A.bin")).records
+        records.forEach { (id, blob) ->
+            assertEquals(
+                secret(id).toList(),
+                CipherBlob.decrypt(blob, target.getOrCreatePluginKey(DIGEST_A), DIGEST_A)!!.toList(),
+            )
+        }
+    }
+
+    /** Reviewer item 1: DONE + final MISSING + backup + master -> restore and replay, no loss. */
+    @Test
+    fun doneWithMissingFinalRestoresFromBackupAndReplays() {
+        val dir = tmp.newFolder("vault-done-missing")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedVault(dir, legacy)
+        Files.move(
+            File(dir, "vault.$DIGEST_A.bin").toPath(),
+            File(dir, "vault.$DIGEST_A.bin.bak-migrating").toPath(),
+        )
+        Files.write(File(dir, "migration.journal").toPath(), "$DIGEST_A=DONE".toByteArray(StandardCharsets.UTF_8))
+
+        val report = VaultKeyMigrator(dir, legacy, target).migrateAll()
+
+        assertTrue("DONE+missing-final restore must succeed: $report", report.succeeded)
+        val records = readCiphertextFile(File(dir, "vault.$DIGEST_A.bin")).records
+        assertEquals(
+            secret("tok").toList(),
+            CipherBlob.decrypt(records["tok"]!!, target.getOrCreatePluginKey(DIGEST_A), DIGEST_A)!!.toList(),
+        )
+        assertEquals(
+            secret("refresh").toList(),
+            CipherBlob.decrypt(records["refresh"]!!, target.getOrCreatePluginKey(DIGEST_A), DIGEST_A)!!.toList(),
+        )
+    }
+
+    /** Reviewer item 1: DONE + final MISSING + NO backup -> explicit failure, nothing deleted. */
+    @Test
+    fun doneWithMissingFinalAndNoBackupFailsExplicitlyWithoutDeleting() {
+        val dir = tmp.newFolder("vault-done-unrecoverable")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedVault(dir, legacy)
+        // Source file deleted and NO backup: the DONE claim cannot be validated, nothing recoverable.
+        assertTrue(File(dir, "vault.$DIGEST_A.bin").delete())
+        Files.write(File(dir, "migration.journal").toPath(), "$DIGEST_A=DONE".toByteArray(StandardCharsets.UTF_8))
+
+        val report = VaultKeyMigrator(dir, legacy, target).migrateAll()
+
+        assertFalse("unrecoverable DONE must fail explicitly: $report", report.succeeded)
+        assertFalse("master must NOT be deleted when recovery is impossible", report.masterKeyDeleted)
+        assertTrue("master file must still exist", File(dir, FileBackedKeyRing.MASTER_KEY_FILE_NAME).exists())
+        assertFalse("completion marker must NOT be created", File(dir, COMPLETION_MARKER_NAME).exists())
+    }
+
+    /** Reviewer item 1: DONE + CORRUPT final + backup + master -> restore, never keep garbage. */
+    @Test
+    fun doneWithCorruptFinalRestoresFromBackupWhenMasterPresent() {
+        val dir = tmp.newFolder("vault-done-corrupt")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedVault(dir, legacy)
+        Files.move(
+            File(dir, "vault.$DIGEST_A.bin").toPath(),
+            File(dir, "vault.$DIGEST_A.bin.bak-migrating").toPath(),
+        )
+        writeCiphertextFile(File(dir, "vault.$DIGEST_A.bin"), linkedMapOf("tok" to CipherBlob(ByteArray(12), ByteArray(4), ByteArray(16))))
+        Files.write(File(dir, "migration.journal").toPath(), "$DIGEST_A=DONE".toByteArray(StandardCharsets.UTF_8))
+
+        val report = VaultKeyMigrator(dir, legacy, target).migrateAll()
+
+        assertTrue("DONE+corrupt-final restore must succeed: $report", report.succeeded)
+        val records = readCiphertextFile(File(dir, "vault.$DIGEST_A.bin")).records
+        assertEquals(
+            secret("tok").toList(),
+            CipherBlob.decrypt(records["tok"]!!, target.getOrCreatePluginKey(DIGEST_A), DIGEST_A)!!.toList(),
+        )
+        assertEquals(
+            secret("refresh").toList(),
+            CipherBlob.decrypt(records["refresh"]!!, target.getOrCreatePluginKey(DIGEST_A), DIGEST_A)!!.toList(),
+        )
+    }
+
+    /**
+     * Reviewer item 2 (narrow window): master already deleted but marker not yet created —
+     * a rerun must SELF-HEAL by adopting OS-verified files, not fail or re-key anything.
+     */
+    @Test
+    fun masterDeletedWithoutMarkerSelfHealsOnNextRun() {
+        val dir = tmp.newFolder("vault-window")
+        val legacy = FakeVaultKeyRing()
+        val target = FakeVaultKeyRing()
+        seedVault(dir, legacy)
+        assertTrue(VaultKeyMigrator(dir, legacy, target).migrateAll().succeeded)
+
+        // Simulate: marker lost mid-create (crash window), master already gone, journal discarded.
+        assertTrue(File(dir, COMPLETION_MARKER_NAME).delete())
+        Files.deleteIfExists(File(dir, "migration.journal").toPath())
+
+        val rerun = VaultKeyMigrator(dir, legacy, target).migrateAll()
+
+        assertTrue("window rerun must self-heal: $rerun", rerun.succeeded)
+        assertTrue("marker must be recreated", File(dir, COMPLETION_MARKER_NAME).exists())
+        assertFalse("master must stay gone", File(dir, FileBackedKeyRing.MASTER_KEY_FILE_NAME).exists())
+        assertFalse("no new target key may be minted", target.hasKey(DIGEST_C))
+        for (digest in listOf(DIGEST_A, DIGEST_B)) {
+            val records = readCiphertextFile(File(dir, "vault.$digest.bin")).records
+            records.forEach { (id, blob) ->
+                assertEquals(
+                    secret(id).toList(),
+                    CipherBlob.decrypt(blob, target.getOrCreatePluginKey(digest), digest)!!.toList(),
+                )
+            }
+        }
+    }
+
     private fun seedVault(
         dir: File,
         legacy: VaultKeyRing,
@@ -252,6 +521,22 @@ class VaultKeyMigratorTest {
             if (digest == DIGEST_B) records["extra"] = CipherBlob.encrypt(key, secret("extra"), digest)
             writeCiphertextFile(File(dir, "vault.$digest.bin"), records)
         }
+        val master = File(dir, FileBackedKeyRing.MASTER_KEY_FILE_NAME)
+        Files.write(master.toPath(), ByteArray(32) { 7 })
+    }
+
+    private fun seedSingle(
+        dir: File,
+        legacy: VaultKeyRing,
+        digest: String,
+    ) {
+        assertTrue("seed requires an existing vault dir", dir.mkdirs() || dir.exists())
+        val records = linkedMapOf<String, CipherBlob>()
+        val key = legacy.getOrCreatePluginKey(digest)
+        for (credentialId in listOf("tok", "refresh")) {
+            records[credentialId] = CipherBlob.encrypt(key, secret(credentialId), digest)
+        }
+        writeCiphertextFile(File(dir, "vault.$digest.bin"), records)
         val master = File(dir, FileBackedKeyRing.MASTER_KEY_FILE_NAME)
         Files.write(master.toPath(), ByteArray(32) { 7 })
     }
@@ -295,6 +580,7 @@ class VaultKeyMigratorTest {
     private companion object {
         const val DIGEST_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         const val DIGEST_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        const val DIGEST_C = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     }
 }
 
