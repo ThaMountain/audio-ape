@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "AudioApe"
 include(":app")
 include(":core:database")
+include(":core:download")
 include(":core:model")
 include(":core:storage")
 include(":plugin:protocol")

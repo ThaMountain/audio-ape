@@ -52,6 +52,8 @@ abstract class AudioApeDatabase : RoomDatabase() {
 
     abstract fun librarySearchDao(): LibrarySearchDao
 
+    abstract fun downloadCommitDao(): DownloadCommitDao
+
     companion object {
         const val VERSION = 1
         const val DATABASE_NAME = "audio-ape.db"
