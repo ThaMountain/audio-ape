@@ -3,7 +3,6 @@ package com.audioape.plugin.host
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyStore
-import java.security.KeyStoreException
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
@@ -22,39 +21,17 @@ import javax.crypto.SecretKey
  *     generator.init(spec); generator.generateKey()
  *     freshStore().getKey(alias, null)          // reads via a FRESH loaded instance
  *
- * Known trait (ADR-0009 §2): `containsAlias`/`getKey` on the FIRST instance throw
- * `KeyStoreException: Uninitialized keystore` even after `load`, so existence checks and
- * reads always go through a FRESH `getInstance` + `load(null,null)` instance.
- *
- * Keys are OS-custodied (android.security.keystore2), never exportable through this API.
- * Alias = `vault.<sha256(pluginId)>`, matching the existing per-plugin digest naming, so
- * cross-plugin isolation is preserved (distinct alias per plugin + GCM AAD on ciphertext).
+ * Error semantics (strict; established empirically with AndroidRingBehaviorProbeTest on
+ * Android 16): an ABSENT alias is reported as `getKey` returning null — never as an exception;
+ * `deleteEntry` on an absent alias is a silent no-op. Therefore a `KeyStoreException`
+ * (or any other throwable) out of these calls is a REAL keystore failure and is propagated —
+ * it must NOT be reported as "key missing", or the vault could silently mint a replacement
+ * key (invalidating existing ciphertext) or report revocation success that didn't happen.
+ * [PluginCredentialVault] maps propagated failures to a typed [VaultIoFailure].
  */
 class AndroidKeyRing : VaultKeyRing {
     override fun getOrCreatePluginKey(pluginDigest: String): SecretKey {
         pluginKeyOrNull(pluginDigest)?.let { return it }
-        return createPluginKey(pluginDigest)
-    }
-
-    override fun pluginKeyOrNull(pluginDigest: String): SecretKey? {
-        val alias = aliasFor(pluginDigest)
-        return try {
-            freshStore().getKey(alias, null) as SecretKey?
-        } catch (_: KeyStoreException) {
-            null // alias does not exist (or OS custody refused) — treated as "not present"
-        }
-    }
-
-    override fun removePluginKey(pluginDigest: String) {
-        val alias = aliasFor(pluginDigest)
-        try {
-            freshStore().deleteEntry(alias)
-        } catch (ignored: Exception) {
-            // deleteEntry on a missing alias throws; removing an absent plugin key is a no-op.
-        }
-    }
-
-    private fun createPluginKey(pluginDigest: String): SecretKey {
         val alias = aliasFor(pluginDigest)
         val generator =
             KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
@@ -70,6 +47,22 @@ class AndroidKeyRing : VaultKeyRing {
         generator.generateKey()
         return freshStore().getKey(alias, null) as SecretKey
             ?: error("generated OS key not visible for alias $alias")
+    }
+
+    override fun pluginKeyOrNull(pluginDigest: String): SecretKey? {
+        // Absent alias -> null (verified behavior, never an exception). Anything else
+        // (KeyStoreException, ClassCastException, ...) is a real failure: propagate.
+        return freshStore().getKey(aliasFor(pluginDigest), null) as SecretKey?
+    }
+
+    override fun removePluginKey(pluginDigest: String) {
+        val alias = aliasFor(pluginDigest)
+        // Absent alias is a no-op (verified); failures propagate.
+        freshStore().deleteEntry(alias)
+        // Revocation is only reported as done once the key is provably gone.
+        if (freshStore().getKey(alias, null) != null) {
+            error("OS key $alias still present after deleteEntry")
+        }
     }
 
     private fun freshStore(): KeyStore = KeyStore.getInstance(PROVIDER).apply { load(null, null) }
