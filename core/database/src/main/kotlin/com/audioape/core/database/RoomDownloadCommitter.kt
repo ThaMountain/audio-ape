@@ -15,19 +15,29 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * AA-021: Room-backed [DownloadCommitter]. Commit idempotency rests on STABLE IDENTITIES plus
- * database constraints + a real transaction (reviewer follow-up):
- *   - the book's canonical `bookId` is the primary key (a replayed commit finds the existing
- *     row via the pre-check in [DownloadCommitDao.commitOnce] and reports AlreadyPresent);
- *   - `media_part` has a UNIQUE (book_id, part_order) index, so a duplicate part insert
- *     violates a constraint and aborts the whole transaction instead of creating a second entry;
- *   - [DownloadCommitDao.commitOnce] is a `@Transaction`: book + parts are all-or-nothing.
- * A replay can therefore never produce a duplicate library entry.
+ * AA-021: Room-backed identity-aware [DownloadCommitter] (reviewer finding 3).
+ *
+ * Idempotency criterion is the COMPLETE identity set, not the bare book ID:
+ *   - exact replay (same title + same part set: order, content URI, bytes, hash) -> AlreadyPresent, zero mutation
+ *   - book row exists with missing/different parts                              -> Conflict, zero mutation
+ *   - no book row                                                               -> atomic insert (Committed)
+ * The compare-or-insert runs inside one @Transaction ([DownloadCommitDao.commitOrCompare]) so a
+ * concurrent reader can never observe a half commit; the UNIQUE (book_id, part_order) index is
+ * the constraint backstop.
  */
 class RoomDownloadCommitter(
     private val db: AudioApeDatabase,
 ) : DownloadCommitter {
-    override fun recordExists(bookId: String): Boolean = runBlocking { db.libraryBookDao().book(BookId(bookId)) != null }
+    override fun verify(
+        bookId: String,
+        displayTitle: String,
+        parts: List<CommittedPart>,
+    ): Boolean =
+        runBlocking {
+            val book = db.libraryBookDao().book(BookId(bookId)) ?: return@runBlocking false
+            if (book.displayTitle != displayTitle) return@runBlocking false
+            db.downloadCommitDao().partsMatch(BookId(bookId), parts)
+        }
 
     override fun commit(
         bookId: String,
@@ -49,9 +59,9 @@ class RoomDownloadCommitter(
                         formatHint = null,
                     )
                 }
-            val inserted =
+            val outcome =
                 runBlocking {
-                    db.downloadCommitDao().commitOnce(
+                    db.downloadCommitDao().commitOrCompare(
                         LibraryBookEntity(
                             bookId = id,
                             editionId = null,
@@ -62,17 +72,22 @@ class RoomDownloadCommitter(
                             userOwned = false,
                         ),
                         entities,
+                        parts,
                     )
                 }
-            if (inserted) CommitResult.Committed else CommitResult.AlreadyPresent
+            when (outcome) {
+                1 -> CommitResult.Committed
+                2 -> CommitResult.AlreadyPresent
+                else -> CommitResult.Conflict("existing book record does not match the proposed commit")
+            }
         } catch (commitFailed: Throwable) {
             CommitResult.Failed(commitFailed)
         }
 }
 
 /**
- * Transactional seam: book + parts insert atomically, idempotent per stable bookId.
- * Returns false (AlreadyPresent) when the book row already exists — nothing is touched.
+ * Transactional seam: compare-or-insert for book + parts.
+ * Returns 1 = inserted, 2 = exact replay (AlreadyPresent), 3 = identity conflict.
  */
 @Dao
 abstract class DownloadCommitDao {
@@ -85,14 +100,51 @@ abstract class DownloadCommitDao {
     @Query("SELECT * FROM library_book WHERE book_id = :bookId")
     protected abstract suspend fun bookUnchecked(bookId: BookId): LibraryBookEntity?
 
-    @Transaction
-    open suspend fun commitOnce(
-        book: LibraryBookEntity,
-        parts: List<MediaPartEntity>,
+    @Query("SELECT * FROM media_part WHERE book_id = :bookId ORDER BY part_order")
+    protected abstract suspend fun partsUnchecked(bookId: BookId): List<MediaPartEntity>
+
+    /** Identity comparison against the proposed commit (order, uri, bytes, hash). */
+    protected open fun partsMatchEntity(
+        rows: List<MediaPartEntity>,
+        proposed: List<CommittedPart>,
     ): Boolean {
-        if (bookUnchecked(book.bookId) != null) return false
+        if (rows.size != proposed.size) return false
+        val byOrder = rows.associateBy { it.partOrder }
+        return proposed.all { part ->
+            val row = byOrder[part.order] ?: return false
+            row.contentUri == part.contentUri &&
+                row.bytes == part.bytes &&
+                row.sha256 == part.sha256Hex
+        }
+    }
+
+    @Query("SELECT * FROM media_part WHERE book_id = :bookId ORDER BY part_order")
+    abstract suspend fun partsForBook(bookId: BookId): List<MediaPartEntity>
+
+    /** Allows [verify] to run without inserting anything. */
+    open suspend fun partsMatch(
+        bookId: BookId,
+        proposed: List<CommittedPart>,
+    ): Boolean = partsMatchEntity(partsUnchecked(bookId), proposed)
+
+    @Transaction
+    open suspend fun commitOrCompare(
+        book: LibraryBookEntity,
+        entities: List<MediaPartEntity>,
+        proposed: List<CommittedPart>,
+    ): Int {
+        val existing = bookUnchecked(book.bookId)
+        if (existing != null) {
+            return if (existing.displayTitle == book.displayTitle &&
+                partsMatchEntity(partsUnchecked(book.bookId), proposed)
+            ) {
+                2 // exact replay
+            } else {
+                3 // identity conflict
+            }
+        }
         insertBookUnchecked(book)
-        insertPartsUnchecked(parts)
-        return true
+        insertPartsUnchecked(entities)
+        return 1
     }
 }

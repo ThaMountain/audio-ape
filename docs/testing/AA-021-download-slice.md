@@ -82,6 +82,29 @@ states), archive safety 4.
   auth/retries plug in later without engine changes.
 - Unverified: physical-device run; network-drop-mid-flight resume; duration decode.
 
+## Security/correctness hardening round (2026-09-20, codex-assigned review of PR #16)
+
+Six findings addressed with regression tests (headless count: **219 tests / 0 failures across 8 modules**: model 38, database 19, download 38, storage 28, protocol 19, fixtures 25, host 29, app 23; spotless + lint + assemble clean; emulator E2E 1/1 PASS):
+
+**1. Block false completion during recovery.** Completion is honored ONLY with proof: expected part identities come from `ResolvedDownloadRequest.expectedParts` (rule 10 changes: requests now carry the validated part list; the archive manifest must exactly match it). The fast path, marker entry, and "already complete" claims all verify every managed file (size + SHA-256) AND the exact Room book + part set (`DownloadCommitter.verify`) before skipping. An empty/incomplete journal can never establish completion; journal claims of completion with nothing provable on disk → explicit failure, no marker, no deletion. Regression tests: `archivedDeletedJournalWithoutRoomRecordFailsExplicitly`, `recordsCommittedJournalMissingManagedFileFailsWithoutMarker`, `completionMarkerWithMismatchedMediaFailsAndPreservesBytes`, `emptyJournalCanNeverEstablishCompletion`, `tornJournalClaimingRecordsCommittedWithNothingOnDiskIsRefused`.
+
+**2. Guarantee no-overwrite publication.** Android forbids hard links (real on-device `AccessDeniedException` caught during E2E — SELinux), so publication uses the platform's no-clobber primitive: journal `PUBLISHING` (write-ahead) → `CREATE_NEW` (O_EXCL) claim → verified copy + fsync → re-verify → `MOVED`. The claim itself fails if the name exists; a competitor's bytes are adopted only on exact match, else collision-failure — never replaced. A wrong-hash dest is OURS to discard only while the journal shows `PUBLISHING` (interrupted copy, recoverable); otherwise it's foreign → collision. Concurrent same-book downloads serialize on a process-wide per-book lock. Regressions: `competingDestinationAppearingBeforePublicationIsNeverOverwritten` (deterministic race: bytes preserved), `concurrentSameBookDownloadsPublishExactlyOneRecord`.
+
+**3. Room replay is identity-aware.** `RoomDownloadCommitter` compares the COMPLETE identity set (title + part order/content URI/bytes/hash) inside one `@Transaction` (`commitOrCompare`): exact replay → `AlreadyPresent` (zero mutation), mismatch/missing parts → `Conflict` (engine fails the run; no marker), no row → insert. Regressions (8 tests): exact replay, book-with-zero-parts, differing hash, differing URI, missing part, differing title, concurrent commits (exactly one insert + one AlreadyPresent), `verify()` rejection cases.
+
+**4. Bound the initial ZIP scan.** Every archive member is now DRAINED through budgeted streaming (entry count ≤ 513, per-entry expanded ≤ 4 GiB, cumulative ≤ 16 GiB, inflate ratio ≤ 200×) before the manifest is trusted; the archive itself is capped by `maxArchiveSizeBytes` enforced during staging AND by request validation (`expectedArchiveSizeBytes <= maxArchiveSizeBytes`). Regressions: `oversizedCompressibleEntryIsRejectedDuringScanWithNoExtraction`, `requestRejectsExpectedSizeAboveConfiguredArchiveCap`.
+
+**5. Book ID validated before filesystem access.** `validateBookId` (canonical UUID) now runs FIRST, before any book path is constructed/read/written; the book dir is confined under `downloadsRoot`. Regression: `invalidBookIdThrowsBeforeAnyFilesystemMutation` (asserts the downloads root is untouched for traversal-style and malformed IDs).
+
+**6. Journal durability contract corrected.** `rewrite()` now: full-temp write → `FileChannel.force(true)` → `ATOMIC_MOVE` (with `AtomicMoveNotSupportedException` → explicit journal failure, no silent downgrade) → best-effort directory fsync. `discard()` also removes stale temp. Regression: `staleJournalTempFileIsInertAndCleaned` (interrupted-write artifact recovery). Documentation: this section + DownloadJournal KDoc.
+
+Preservation guarantees summarized: the engine still only ever operates under `downloadsRoot/<bookId>/`; user media (Nick's audiobook folder) is never touched; collisions preserve foreign bytes byte-identically; completion markers are never written without verified media + verified record.
+
+## Simulated vs demonstrated (hardening round)
+
+- **Simulated (headless, deterministic):** process death at every checkpoint via `SimulatedCrash` (still no real Android process-kill instrumentation — real process-death testing is not available in this environment); the publication race via the checkpoint side-effect hook; concurrent commits via threads.
+- **Demonstrated on Android (emulator):** the full two-part loopback-HTTP download E2E (runs 1-5): download → verify → extract → CREATE_NEW publication on real Android FS (exposing + fixing the SELinux hard-link block) → Room record; idempotent replay; torn-journal recovery preserving rows; garbage-journal refusal; marker-with-tampered-media failure preserving tampered bytes.
+
 ## The earlier `IndexOutOfBoundsException` (documented, NOT proven)
 A transient batch failure (original stack never captured) is **unproven in cause**.
 `DownloadJournal`'s unconditional `cols[1]`/`cols[2]` indexing was a CONFIRMED latent defect of

@@ -38,15 +38,7 @@ data class DownloadManifest(
         require(bookId.isNotBlank()) { "manifest book id must not be blank" }
         require(displayTitle.isNotBlank()) { "manifest title must not be blank" }
         require(displayTitle.length <= MAX_TITLE_CHARS) { "manifest title is too long" }
-        require(parts.isNotEmpty()) { "manifest must declare at least one part" }
-        require(parts.size <= ArchiveSafetyLimits.MAX_PART_COUNT) { "too many parts" }
-        require(parts.map { it.order }.distinct().size == parts.size) { "duplicate part orders" }
-        require(parts.map { it.fileName.lowercase() }.distinct().size == parts.size) {
-            "duplicate part file names (case-insensitive)"
-        }
-        require(parts.sumOf { it.sizeBytes } <= ArchiveSafetyLimits.MAX_TOTAL_BYTES) {
-            "declared total size exceeds the book budget"
-        }
+        validatePartList(parts)
     }
 }
 
@@ -62,6 +54,8 @@ data class ResolvedDownloadRequest(
     val source: DownloadSource,
     val expectedArchiveSizeBytes: Long,
     val expectedArchiveSha256Hex: String,
+    val expectedParts: List<PartDescriptor>,
+    val maxArchiveSizeBytes: Long = ArchiveSafetyLimits.MAX_ARCHIVE_BYTES,
 ) {
     init {
         require(bookId.isNotBlank()) { "book id must not be blank" }
@@ -70,6 +64,30 @@ data class ResolvedDownloadRequest(
         require(SHA256_HEX.matches(expectedArchiveSha256Hex)) {
             "expected archive sha256 must be 64 lowercase hex characters"
         }
+        validatePartList(expectedParts)
+        require(maxArchiveSizeBytes >= ArchiveSafetyLimits.MAX_MANIFEST_BYTES) {
+            "archive size cap must be a sane bound"
+        }
+    }
+}
+
+/**
+ * Shared structural validation for a part list (used by the manifest AND the request's
+ * expected parts, so the two can never disagree structurally). The safe-file-name grammar
+ * makes traversal impossible by construction.
+ */
+internal fun validatePartList(parts: List<PartDescriptor>) {
+    require(parts.isNotEmpty()) { "part list must not be empty" }
+    require(parts.size <= ArchiveSafetyLimits.MAX_PART_COUNT) { "too many parts" }
+    require(parts.map { it.order }.distinct().size == parts.size) { "duplicate part orders" }
+    require(parts.map { it.fileName.lowercase() }.distinct().size == parts.size) {
+        "duplicate part file names (case-insensitive)"
+    }
+    require(parts.sumOf { it.sizeBytes } <= ArchiveSafetyLimits.MAX_TOTAL_BYTES) {
+        "declared total size exceeds the book budget"
+    }
+    parts.forEach { part ->
+        require(part.sizeBytes <= ArchiveSafetyLimits.MAX_PART_BYTES) { "part exceeds the per-member budget" }
     }
 }
 

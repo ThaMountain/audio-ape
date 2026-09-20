@@ -1,24 +1,36 @@
 package com.audioape.core.download
 
 import java.io.File
+import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 
 /**
  * Write-ahead journal for one download book directory (AA-021), mirroring the hardened
  * VaultKeyMigrator discipline: per-part states recorded BEFORE the file operations they guard,
- * atomic rewrites (temp + rename) so a crash never leaves a torn state line, and a completion
- * marker committed LAST. Recovery prefers redundant recoverable data (staging archive is kept
- * until every part is MOVED and the Room record is committed) over early deletion.
+ * and a completion marker committed LAST. Recovery prefers redundant recoverable data (staging
+ * archive is kept until every part is MOVED and the Room record is verified) over early deletion.
  *
  * States:
  *   part:  PENDING → EXTRACTING (before extraction) → EXTRACTED (bytes+hash verified)
  *          → MOVED (committed into the managed tree; adopted copies also reach MOVED)
  *   book:  PENDING → ARCHIVE_STAGED (archive verified on disk)
  *          → MANIFEST_READY (manifest parsed + validated)
- *          → RECORDS_COMMITTED (Room record present)
+ *          → RECORDS_COMMITTED (Room record verified)
  *          → ARCHIVE_DELETED (staging cleaned) → DONE (marker written)
+ *
+ * DURABILITY CONTRACT (reviewer finding 6): every state change is published by:
+ *   1. writing the full new journal to a `.tmp` sibling,
+ *   2. forcing the temp file's contents to stable storage (FileChannel.force),
+ *   3. an ATOMIC rename over the journal file (old-or-new, never torn),
+ *   4. a best-effort directory fsync.
+ * If the provider refuses atomic replacement (AtomicMoveNotSupportedException) the write FAILS
+ * (propagated) — durability cannot be quietly downgraded; the run then reports an engine
+ * failure and retries on the next run, where the OLD journal state is still recoverable.
+ * A stale `.tmp` from an interrupted write is inert (never read) and cleaned on next rewrite.
  */
 internal class DownloadJournal(
     private val file: File,
@@ -67,8 +79,6 @@ internal class DownloadJournal(
 
     fun part(fileName: String): PartState = partStates[fileName] ?: PartState.PENDING
 
-    fun allPartsMoved(): Boolean = partStates.values.all { it == PartState.MOVED }
-
     fun markBook(state: BookState) {
         bookState = state
         rewrite()
@@ -86,26 +96,45 @@ internal class DownloadJournal(
         partStates.clear()
         bookState = BookState.PENDING
         Files.deleteIfExists(file.toPath())
+        Files.deleteIfExists(tempFile.toPath())
     }
 
     private fun rewrite() {
-        // DURABLE ATOMIC REPLACEMENT (reviewer follow-up): the journal is never appended to or
-        // rewritten in place — every state change writes a `.tmp` sibling and atomically renames
-        // it over the journal, so a crash can leave only the OLD or the NEW state, never a torn
-        // file. Covered by the crash matrix (all 11 checkpoints) and the no-`.tmp`-residue
-        // assertion in the happy-path test.
         val lines =
             buildString {
                 appendLine("book|${bookState.name}")
                 partStates.forEach { (name, state) -> appendLine("part|$name|${state.name}") }
             }
-        val temp = File(file.parentFile, file.name + ".tmp")
-        Files.write(temp.toPath(), lines.toByteArray(StandardCharsets.UTF_8))
-        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        val bytes = lines.toByteArray(StandardCharsets.UTF_8)
+        FileChannel
+            .open(tempFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+            .use { channel ->
+                channel.write(java.nio.ByteBuffer.wrap(bytes))
+                channel.force(true) // contents + metadata to stable storage before the rename
+            }
+        try {
+            Files.move(tempFile.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } catch (unsupported: AtomicMoveNotSupportedException) {
+            // Durability cannot be established atomically: fail loudly rather than downgrade.
+            Files.deleteIfExists(tempFile.toPath())
+            throw IllegalStateException("journal atomic replacement is not supported by this filesystem", unsupported)
+        }
+        forceParentDirectory()
     }
+
+    /** Best-effort directory fsync; inability to fsync the dir is tolerated (documented). */
+    private fun forceParentDirectory() {
+        try {
+            FileChannel.open(file.parentFile.toPath(), StandardOpenOption.READ).use { it.force(true) }
+        } catch (_: UnsupportedOperationException) {
+        } catch (_: java.io.IOException) {
+        }
+    }
+
+    private val tempFile: File = File(file.parentFile, file.name + ".tmp")
 }
 
-internal enum class PartState { PENDING, EXTRACTING, EXTRACTED, MOVED }
+internal enum class PartState { PENDING, EXTRACTING, EXTRACTED, PUBLISHING, MOVED }
 
 internal enum class BookState { PENDING, ARCHIVE_STAGED, MANIFEST_READY, RECORDS_COMMITTED, ARCHIVE_DELETED, DONE }
 
@@ -116,6 +145,7 @@ internal enum class DownloadCheckpoint {
     MANIFEST_READY,
     PART_EXTRACTING,
     PART_EXTRACTED,
+    PART_PUBLISHING,
     PART_MOVED,
     RECORDS_COMMITTED,
     BEFORE_ARCHIVE_DELETE,

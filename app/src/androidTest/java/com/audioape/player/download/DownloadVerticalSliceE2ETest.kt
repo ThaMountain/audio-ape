@@ -22,6 +22,7 @@ import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URL
+import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -117,6 +118,19 @@ class DownloadVerticalSliceE2ETest {
         assertTrue("garbage journal must be refused", !fourth.succeeded)
         assertEquals("book rows untouched by the refusal", 1, countBooks())
         assertEquals("part rows untouched by the refusal", 2, countParts(bookId))
+
+        // ---- Run 5: marker present but MEDIA tampered -> explicit failure, bytes preserved -------
+        val tamperedBytes = "on-device-tamper".toByteArray()
+        val managed00 = File(managedDir, "part00.wav")
+        Files.write(managed00.toPath(), tamperedBytes)
+        val fifth = engine.run(request)
+        assertTrue("marker + mismatched media must fail, not no-op", !fifth.succeeded)
+        assertTrue(
+            "tampered bytes must remain untouched",
+            tamperedBytes.contentEquals(managed00.readBytes()),
+        )
+        assertEquals("still exactly one book row", 1, countBooks())
+        assertEquals("still exactly two part rows", 2, countParts(bookId))
     }
 
     private fun request(bookId: String): ResolvedDownloadRequest =
@@ -126,6 +140,7 @@ class DownloadVerticalSliceE2ETest {
             source = DownloadSource { fetch(server.url()) },
             expectedArchiveSizeBytes = fixture.zip.length(),
             expectedArchiveSha256Hex = DownloadHashes.sha256(fixture.zip.inputStream()),
+            expectedParts = fixture.manifest.parts,
         )
 
     private fun fetch(url: String): java.io.InputStream {

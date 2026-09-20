@@ -77,14 +77,45 @@ object DownloadFixtures {
         }
         return zip
     }
+
+    /**
+     * Standard request for a built fixture (expected parts = manifest parts; the trustworthy
+     * identity source the engine verifies against).
+     */
+    fun fixtureRequest(
+        fixture: SyntheticZip,
+        bookId: String = fixture.manifest.bookId,
+        title: String = fixture.manifest.displayTitle,
+        source: DownloadSource = DownloadSource { fixture.zipFile.inputStream() },
+        maxArchiveSizeBytes: Long = ArchiveSafetyLimits.MAX_ARCHIVE_BYTES,
+    ): ResolvedDownloadRequest =
+        ResolvedDownloadRequest(
+            bookId = bookId,
+            displayTitle = title,
+            source = source,
+            expectedArchiveSizeBytes = fixture.archiveSizeBytes,
+            expectedArchiveSha256Hex = fixture.archiveSha256Hex,
+            expectedParts = fixture.manifest.parts,
+            maxArchiveSizeBytes = maxArchiveSizeBytes,
+        )
 }
 
-/** In-memory committer for headless tests; counts inserts to prove single-record commit. */
+/** In-memory committer for headless tests; tracks identity sets to prove single-record commit. */
 internal class MemoryCommitter : DownloadCommitter {
-    val committed = mutableListOf<Pair<String, List<CommittedPart>>>()
+    data class Record(
+        val bookId: String,
+        val displayTitle: String,
+        val parts: List<CommittedPart>,
+    )
+
+    val committed = mutableListOf<Record>()
     var failCommit = false
 
-    override fun recordExists(bookId: String): Boolean = committed.any { it.first == bookId }
+    override fun verify(
+        bookId: String,
+        displayTitle: String,
+        parts: List<CommittedPart>,
+    ): Boolean = committed.any { it.bookId == bookId && it.displayTitle == displayTitle && it.parts == parts }
 
     override fun commit(
         bookId: String,
@@ -94,7 +125,20 @@ internal class MemoryCommitter : DownloadCommitter {
         if (failCommit) {
             CommitResult.Failed(IllegalStateException("simulated commit failure"))
         } else {
-            committed += bookId to parts
-            CommitResult.Committed
+            val existing = committed.firstOrNull { it.bookId == bookId }
+            when {
+                existing == null -> {
+                    committed += Record(bookId, displayTitle, parts)
+                    CommitResult.Committed
+                }
+
+                existing.parts == parts && existing.displayTitle == displayTitle -> {
+                    CommitResult.AlreadyPresent
+                }
+
+                else -> {
+                    CommitResult.Conflict("existing parts differ from the proposed commit")
+                }
+            }
         }
 }

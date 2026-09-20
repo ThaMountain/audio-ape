@@ -62,6 +62,7 @@ object ArchiveSafetyLimits {
     const val MAX_PART_COUNT = 512
     const val MAX_PART_BYTES = 4L shl 30 // 4 GiB per part
     const val MAX_TOTAL_BYTES = 16L shl 30 // 16 GiB per book
+    const val MAX_ARCHIVE_BYTES = MAX_TOTAL_BYTES + (8L shl 20) // archive cap = parts + manifest + zip overhead
     const val MAX_INFLATE_RATIO = 200L // zip-bomb guard per member
     const val MAX_NAME_LENGTH = 255
     val SAFE_FILE_NAME = Regex("[A-Za-z0-9._-]{1,$MAX_NAME_LENGTH}")

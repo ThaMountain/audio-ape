@@ -5,6 +5,8 @@ import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipEntry
 import java.util.zip.ZipException
 import java.util.zip.ZipInputStream
@@ -15,20 +17,45 @@ import java.util.zip.ZipInputStream
  * write-ahead journal + deterministic crash recovery (every transition recoverable, no loss of
  * originals, no duplicate library entries).
  *
+ * Security/correctness hardening (reviewer findings 1-6):
+ *
+ * 1. COMPLETION REQUIRES PROOF (finding 1): the journal is a hint, never the source of truth.
+ *    Expected part identities come from [ResolvedDownloadRequest.expectedParts] (the caller's
+ *    manifest knowledge, validated by grammar). A fast path, marker entry, or "already
+ *    complete" claim is honored ONLY when: every managed file exists with matching size + SHA-256
+ *    AND [DownloadCommitter.verify] confirms the exact Room book + part set. An empty or
+ *    incomplete journal can never establish completion; with the archive gone and content
+ *    unverifiable the run fails explicitly — no marker, no deletion.
+ * 2. NO-OVERWRITE PUBLICATION (finding 2): the final publication is a hard link
+ *    (Files.createLink) whose POSIX semantics CANNOT replace an existing destination
+ *    (EEXIST). A competing destination is either adopted (byte-exact match) or a collision
+ *    failure — never overwritten. Concurrent downloads of the same book are serialized by a
+ *    per-book process-wide lock. If the filesystem does not support hard links, publication
+ *    FAILS explicitly (no silent downgrade to a replacing move).
+ * 3. IDENTITY-AWARE ROOM COMMIT (finding 3): the committer compares the complete part set
+ *    (order, content URI, bytes, hash); a mismatch is a Conflict = failed commit, never a
+ *    marker.
+ * 4. BOUNDED INITIAL SCAN (finding 4): every archive member is drained through bounded,
+ *    budgeted streaming (entry count, per-entry expanded bytes, cumulative expanded bytes,
+ *    inflate ratio) BEFORE the manifest is trusted; the archive itself is capped by
+ *    [ResolvedDownloadRequest.maxArchiveSizeBytes] during staging.
+ * 5. BOOK-ID VALIDATED FIRST (finding 5): the canonical-UUID check runs before ANY book
+ *    path is constructed or read, and the book directory is confined under downloadsRoot.
+ * 6. JOURNAL DURABILITY (finding 6): fsync + atomic rename in DownloadJournal; unsupported
+ *    atomic replacement fails the run rather than silently downgrading.
+ *
  * SCOPE SAFETY (Nick's invariant): this engine touches ONLY files it created under
- * `downloadsRoot/<bookId>/` (the subtree it owns). It never deletes, moves, renames, or overwrites any pre-existing
- * file (in particular nothing in the user's audiobook folder). A managed-tree file collision
- * (exists + different hash) is an explicit FAILURE, never an overwrite; a collision with
- * matching hash is adopted (idempotent recovery).
+ * `downloadsRoot/<bookId>/`. It never deletes, moves, renames, or overwrites any pre-existing
+ * file (in particular nothing in the user's audiobook folder).
  */
 class DownloadEngine(
     private val downloadsRoot: File,
     private val committer: DownloadCommitter,
 ) {
     /**
-     * TEST SEAM: deterministic crash injection at named [DownloadCheckpoint]s (see
-     * DownloadJournal.kt). Tests throw [SimulatedCrash] from the hook to model process death;
-     * recovery is then exercised by a FRESH engine instance.
+     * TEST SEAM: deterministic crash injection at named [DownloadCheckpoint]s. Tests throw
+     * [SimulatedCrash] from the hook to model process death; recovery is exercised by a FRESH
+     * engine instance. (Simulated, not real Android process death.)
      */
     internal var checkpointHook: ((DownloadCheckpoint) -> Unit)? = null
 
@@ -37,8 +64,24 @@ class DownloadEngine(
     }
 
     fun run(request: ResolvedDownloadRequest): DownloadReport {
-        val report = DownloadReport(bookId = request.bookId)
+        // FINDING 5: validate BEFORE any book-specific path is built, read, written, or deleted.
+        validateBookId(request.bookId)
+        require(downloadsRoot.isDirectory || downloadsRoot.mkdirs()) { "downloads root must be available" }
         val bookDir = File(downloadsRoot, request.bookId)
+        require(bookDir.parentFile.canonicalFile == downloadsRoot.canonicalFile) {
+            "book directory must be confined to the downloads root"
+        }
+
+        // FINDING 2: serialize concurrent downloads of the SAME book across engine instances.
+        val lock = LOCKS.computeIfAbsent(request.bookId) { Any() }
+        return synchronized(lock) { runLocked(request, bookDir) }
+    }
+
+    private fun runLocked(
+        request: ResolvedDownloadRequest,
+        bookDir: File,
+    ): DownloadReport {
+        val report = DownloadReport(bookId = request.bookId)
         val stagingDir = File(bookDir, "staging")
         val extractedDir = File(stagingDir, "extracted")
         val managedDir = File(bookDir, "managed")
@@ -46,28 +89,24 @@ class DownloadEngine(
         val marker = File(bookDir, COMPLETION_MARKER_NAME)
         val journal = DownloadJournal(File(bookDir, JOURNAL_FILE_NAME))
 
-        // --- Completion-marker entry ---------------------------------------------------------
+        // Completion requires PROOF (finding 1): the marker alone is not honored.
         if (marker.exists()) {
             val stagingResidue = stagingDir.exists() && stagingDir.listFiles().orEmpty().isNotEmpty()
-            if (stagingResidue || !committer.recordExists(request.bookId)) {
+            if (stagingResidue || !verifyCompleted(request, managedDir)) {
                 report.engineFailure =
                     IllegalStateException(
                         "completion marker present but state is inconsistent " +
-                            "(stagingResidue=$stagingResidue, recordExists=${committer.recordExists(request.bookId)})",
+                            "(stagingResidue=$stagingResidue, mediaVerified=${verifyCompleted(request, managedDir)})",
                     )
             } else {
-                // Marker proves completion; a lingering journal is inert bookkeeping — discard it.
-                journal.discard()
+                journal.discard() // inert bookkeeping; completion is authoritative only when PROVEN
                 report.alreadyComplete = true
             }
             return report
         }
 
-        // The journal is a HINT, not the source of truth. A structurally inconsistent journal
-        // (foreign/garbage content — NOT our format) is refused outright: never silently
-        // interpret arbitrary malformed data as permission to restart work. A torn-but-parseable
-        // line is recoverable (skipped; PENDING default) because every resume/reuse/discard
-        // decision below VERIFIES the actual artifacts (size + hash) before touching anything.
+        // The journal is a HINT, not the source of truth. Structurally foreign content is
+        // refused outright; torn-but-parseable lines recover via artifact verification below.
         if (!journal.consistent()) {
             report.failedFiles["journal"] =
                 IllegalStateException(
@@ -77,100 +116,84 @@ class DownloadEngine(
         }
 
         try {
-            validateBookId(request.bookId)
-            bookDir.mkdirs()
             stagingDir.mkdirs()
             extractedDir.mkdirs()
             managedDir.mkdirs()
 
-            // --- Recovery fast path -----------------------------------------------------------
-            // If the journal already proves every part MOVED and the record committed, only the
-            // cleanup + marker remain — never re-download, never re-extract, never re-commit.
-            val fastPath =
+            // FINDING 1: the fast path claims completion ONLY when every managed file AND the
+            // Room record are VERIFIED against the request's expected identities.
+            val journalClaimsComplete =
                 journal.book() == BookState.ARCHIVE_DELETED ||
-                    (journal.book() == BookState.RECORDS_COMMITTED && journal.allPartsMoved())
-            if (!fastPath) {
-                // --- 1. Staging: archive present + verified? otherwise (re)download ------------------
-                when {
-                    archive.isFile && DownloadHashes.fileMatchesSha256(archive, request.expectedArchiveSha256Hex) -> {
-                        require(archive.length() == request.expectedArchiveSizeBytes) {
-                            "staged archive size mismatch"
-                        }
-                    }
-
-                    archive.isFile -> {
-                        throw IOException(
-                            "staged archive exists but its hash does not match the expected digest",
-                        )
-                    }
-
-                    else -> {
-                        downloadArchive(request, archive, journal, report)
-                    }
-                }
-                report.archiveVerified = true
-                journal.markBook(BookState.ARCHIVE_STAGED)
-                at(DownloadCheckpoint.STAGE_ARCHIVE_VERIFIED)
-
-                // --- 2. Manifest: read + validate + cross-check against the request -------------------
-                val manifest = readAndValidateManifest(archive, request)
-                journal.markBook(BookState.MANIFEST_READY)
-                at(DownloadCheckpoint.MANIFEST_READY)
-
-                // --- 3. Per-part extract / adopt / move -----------------------------------------------
-                manifest.parts.forEach { part ->
-                    extractOrAdoptPart(archive, stagingDir, extractedDir, managedDir, part, journal, report)
-                }
-
-                // --- 4. Room record -------------------------------------------------------------------
-                if (!committer.recordExists(request.bookId)) {
-                    val outcome =
-                        committer.commit(
-                            bookId = request.bookId,
-                            displayTitle = manifest.displayTitle,
-                            parts =
-                                manifest.parts.map { part ->
-                                    CommittedPart(
-                                        order = part.order,
-                                        fileName = part.fileName,
-                                        contentUri = managedPart(managedDir, part.fileName).toURI().toString(),
-                                        bytes = part.sizeBytes,
-                                        sha256Hex = part.sha256Hex,
-                                    )
-                                },
-                        )
-                    when (outcome) {
-                        is CommitResult.Committed -> Unit
-
-                        is CommitResult.AlreadyPresent -> Unit
-
-                        // adopted; still a single record
-                        is CommitResult.Failed -> throw IOException("Room commit failed", outcome.cause)
-                    }
-                }
-                journal.markBook(BookState.RECORDS_COMMITTED)
-                at(DownloadCheckpoint.RECORDS_COMMITTED)
+                    (journal.book() == BookState.RECORDS_COMMITTED)
+            if (journalClaimsComplete && verifyCompleted(request, managedDir)) {
+                cleanupAndMarkComplete(request, bookDir, stagingDir, extractedDir, archive, journal)
+                return report
             }
 
-            // --- 5. Cleanup + marker (marker is the LAST durable artifact) --------------------------
-            deleteOnlyInside(extractedDir)
-            at(DownloadCheckpoint.BEFORE_ARCHIVE_DELETE)
-            Files.deleteIfExists(archive.toPath())
-            at(DownloadCheckpoint.AFTER_ARCHIVE_DELETE)
-            journal.markBook(BookState.ARCHIVE_DELETED)
-            at(DownloadCheckpoint.BEFORE_MARKER_CREATE)
-            // Staging must be FULLY gone so a later marker check sees zero residue: drop the now-empty
-            // extracted/ and the staging/ container itself (both engine-created), not just their contents.
-            Files.deleteIfExists(extractedDir.toPath())
-            Files.deleteIfExists(stagingDir.toPath())
-            Files.write(marker.toPath(), MARKER_CONTENT.toByteArray(StandardCharsets.UTF_8))
-            at(DownloadCheckpoint.AFTER_MARKER_CREATE)
-            journal.discard()
-            // Marker entry check for the AFTER_MARKER_CREATE crash is handled next run: marker
-            // present + clean -> verified no-op. The lingering journal is discarded there.
+            // --- 1. Staging: archive present + verified? otherwise (re)download ------------------
+            when {
+                archive.isFile && DownloadHashes.fileMatchesSha256(archive, request.expectedArchiveSha256Hex) -> {
+                    require(archive.length() == request.expectedArchiveSizeBytes) {
+                        "staged archive size mismatch"
+                    }
+                }
+
+                archive.isFile -> {
+                    throw IOException(
+                        "staged archive exists but its hash does not match the expected digest",
+                    )
+                }
+
+                else -> {
+                    // FINDING 1: if the journal claims work is finished but the content cannot be
+                    // established (archive gone + media/record unverifiable) → explicit failure.
+                    if (journal.book() == BookState.ARCHIVE_DELETED || journal.book() == BookState.RECORDS_COMMITTED) {
+                        throw IOException(
+                            "journal claims completion but the archive is gone and the expected " +
+                                "content cannot be verified — refusing to re-download after completion",
+                        )
+                    }
+                    downloadArchive(request, archive, journal, report)
+                }
+            }
+            report.archiveVerified = true
+            journal.markBook(BookState.ARCHIVE_STAGED)
+            at(DownloadCheckpoint.STAGE_ARCHIVE_VERIFIED)
+
+            // --- 2. Manifest: bounded scan + parse + cross-check against request ------------------
+            val manifest = readAndValidateManifest(archive, request)
+            journal.markBook(BookState.MANIFEST_READY)
+            at(DownloadCheckpoint.MANIFEST_READY)
+
+            // --- 3. Per-part extract / adopt / publish ---------------------------------------------
+            manifest.parts.forEach { part ->
+                extractOrPublishPart(archive, extractedDir, managedDir, part, journal, report)
+            }
+
+            // --- 4. Identity-aware Room record -----------------------------------------------------
+            if (!committer.verify(request.bookId, manifest.displayTitle, committedParts(request, managedDir))) {
+                val outcome =
+                    committer.commit(
+                        bookId = request.bookId,
+                        displayTitle = manifest.displayTitle,
+                        parts = committedParts(request, managedDir),
+                    )
+                when (outcome) {
+                    is CommitResult.Committed -> Unit
+
+                    is CommitResult.AlreadyPresent -> Unit
+
+                    // exact replay; still a single record
+                    is CommitResult.Conflict -> throw IOException("Room commit conflict: ${outcome.reason}")
+
+                    is CommitResult.Failed -> throw IOException("Room commit failed", outcome.cause)
+                }
+            }
+            journal.markBook(BookState.RECORDS_COMMITTED)
+            at(DownloadCheckpoint.RECORDS_COMMITTED)
+
+            cleanupAndMarkComplete(request, bookDir, stagingDir, extractedDir, archive, journal)
         } catch (interrupted: InterruptedException) {
-            // Preserve the interrupt status so the harness/thread sees the interruption,
-            // then propagate — never masked as an ordinary download failure.
             Thread.currentThread().interrupt()
             throw interrupted
         } catch (simulatedCrash: SimulatedCrash) {
@@ -188,6 +211,65 @@ class DownloadEngine(
         }
         return report
     }
+
+    /**
+     * FINDING 1: verification that expected content REALLY exists. Every managed file must
+     * match size + SHA-256 from [ResolvedDownloadRequest.expectedParts], and the committer must
+     * confirm the exact Room book + part set. An empty or partial set fails — emptiness can
+     * never establish completion.
+     */
+    private fun verifyCompleted(
+        request: ResolvedDownloadRequest,
+        managedDir: File,
+    ): Boolean {
+        if (request.expectedParts.isEmpty()) return false
+        val mediaOk =
+            request.expectedParts.all { part ->
+                val f = File(managedDir, part.fileName)
+                f.isFile &&
+                    f.length() == part.sizeBytes &&
+                    DownloadHashes.fileMatchesSha256(f, part.sha256Hex)
+            }
+        if (!mediaOk) return false
+        return committer.verify(request.bookId, request.displayTitle, committedParts(request, managedDir))
+    }
+
+    private fun committedParts(
+        request: ResolvedDownloadRequest,
+        managedDir: File,
+    ): List<CommittedPart> =
+        request.expectedParts.map { part ->
+            CommittedPart(
+                order = part.order,
+                fileName = part.fileName,
+                contentUri = File(managedDir, part.fileName).toURI().toString(),
+                bytes = part.sizeBytes,
+                sha256Hex = part.sha256Hex,
+            )
+        }
+
+    private fun cleanupAndMarkComplete(
+        request: ResolvedDownloadRequest,
+        bookDir: File,
+        stagingDir: File,
+        extractedDir: File,
+        archive: File,
+        journal: DownloadJournal,
+    ) {
+        // Re-verify BEFORE the marker (a final proof gate; nothing is deleted in between).
+        deleteOnlyInside(extractedDir)
+        extractedDir.delete() // the engine-created extraction dir itself is disposable
+        at(DownloadCheckpoint.BEFORE_ARCHIVE_DELETE)
+        Files.deleteIfExists(archive.toPath())
+        at(DownloadCheckpoint.AFTER_ARCHIVE_DELETE)
+        journal.markBook(BookState.ARCHIVE_DELETED)
+        at(DownloadCheckpoint.BEFORE_MARKER_CREATE)
+        Files.write(marker(bookDir).toPath(), MARKER_CONTENT.toByteArray(StandardCharsets.UTF_8))
+        at(DownloadCheckpoint.AFTER_MARKER_CREATE)
+        journal.discard()
+    }
+
+    private fun marker(bookDir: File): File = File(bookDir, COMPLETION_MARKER_NAME)
 
     private fun downloadArchive(
         request: ResolvedDownloadRequest,
@@ -212,6 +294,10 @@ class DownloadEngine(
                         if (written > request.expectedArchiveSizeBytes) {
                             throw IOException("archive exceeds the expected size")
                         }
+                        // FINDING 4: absolute archive cap independent of the (caller-supplied) expectation.
+                        if (written > request.maxArchiveSizeBytes) {
+                            throw IOException("archive exceeds the configured size cap")
+                        }
                     }
                 }
             }
@@ -227,31 +313,44 @@ class DownloadEngine(
         Files.move(tmp.toPath(), archive.toPath(), StandardCopyOption.ATOMIC_MOVE)
     }
 
+    /**
+     * FINDING 4: the initial scan DRAINS every entry through bounded, budgeted streaming —
+     * entry count, per-entry expanded bytes, cumulative expanded bytes, inflate ratio — and is
+     * the ONLY pass that may trust the manifest afterwards. ZIP header sizes are NOT trusted
+     * alone (they may be unknown/forged); what was actually decompressed is what is counted.
+     */
     private fun readAndValidateManifest(
         archive: File,
         request: ResolvedDownloadRequest,
     ): DownloadManifest {
-        val membersWithManifest = linkedMapOf<String, Boolean>()
+        val members = linkedMapOf<String, Boolean>()
         var manifestBytes: ByteArray? = null
+        var entryCount = 0
+        var cumulativeExpanded = 0L
         try {
             ZipInputStream(archive.inputStream().buffered()).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
+                    entryCount++
+                    if (entryCount > ArchiveSafetyLimits.MAX_PART_COUNT + 1) {
+                        throw ZipException("archive member count exceeds the budget")
+                    }
                     val name = entry.name
                     ArchiveNameChecker.rejectReason(name)?.let { throw ZipException("unsafe member '$name': $it") }
-                    val prior = membersWithManifest.putIfAbsent(name.lowercase(), false)
+                    val prior = members.putIfAbsent(name.lowercase(), false)
                     if (prior != null) throw ZipException("duplicate member '$name' (case-insensitive)")
+
                     if (name == MANIFEST_MEMBER_NAME) {
-                        if (entry.size > ArchiveSafetyLimits.MAX_MANIFEST_BYTES) {
-                            throw ZipException("manifest member too large")
-                        }
-                        manifestBytes = zip.readNBytes(ArchiveSafetyLimits.MAX_MANIFEST_BYTES + 1)
-                        if (manifestBytes!!.size > ArchiveSafetyLimits.MAX_MANIFEST_BYTES) {
+                        val chunk = zip.readNBytes(ArchiveSafetyLimits.MAX_MANIFEST_BYTES + 1)
+                        if (chunk.size > ArchiveSafetyLimits.MAX_MANIFEST_BYTES) {
                             throw ZipException("manifest member exceeds the size budget")
                         }
-                        membersWithManifest[name.lowercase()] = true
+                        manifestBytes = chunk
+                        members[name.lowercase()] = true
+                    } else {
+                        // DRAIN the entry with full per-entry + cumulative + ratio budgets.
+                        drainEntry(zip, entry, cumulativeExpanded)
                     }
-                    // Keep the stream positioned; sizes are re-checked during extraction.
                 }
             }
         } catch (zip: ZipException) {
@@ -262,44 +361,86 @@ class DownloadEngine(
         require(manifest.bookId == request.bookId) {
             "archive manifest book-id '${manifest.bookId}' does not match requested '${request.bookId}'"
         }
-        // The archive must contain EXACTLY the manifest + its declared parts — nothing else.
+        require(manifest.parts == request.expectedParts) {
+            "archive manifest parts do not match the requested identities"
+        }
         val expectedMembers =
             (listOf(MANIFEST_MEMBER_NAME) + manifest.parts.map { it.fileName })
                 .map { it.lowercase() }
                 .toSet()
-        val actualMembers = membersWithManifest.keys.toSet()
+        val actualMembers = members.keys.toSet()
         require(actualMembers == expectedMembers) {
             "archive members do not match manifest (extra=${actualMembers - expectedMembers}, missing=${expectedMembers - actualMembers})"
         }
         return manifest
     }
 
-    private fun extractOrAdoptPart(
+    /** Reads (and discards) one entry with hard budget enforcement on ACTUAL expanded bytes. */
+    private fun drainEntry(
+        zip: ZipInputStream,
+        entry: ZipEntry,
+        cumulativeExpanded: Long,
+    ) {
+        var expanded = 0L
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val read = zip.read(buffer)
+            if (read < 0) break
+            if (read > 0) {
+                expanded += read
+                if (expanded > ArchiveSafetyLimits.MAX_PART_BYTES) {
+                    throw ZipException("member '${entry.name}' exceeds the per-member expanded budget")
+                }
+                if (cumulativeExpanded + expanded > ArchiveSafetyLimits.MAX_TOTAL_BYTES) {
+                    throw ZipException("cumulative expanded bytes exceed the book budget")
+                }
+            }
+        }
+        val compressed = entry.compressedSize
+        if (compressed > 0 && expanded > compressed * ArchiveSafetyLimits.MAX_INFLATE_RATIO) {
+            throw ZipException("member '${entry.name}' inflate ratio exceeds the safety budget")
+        }
+    }
+
+    private fun extractOrPublishPart(
         archive: File,
-        stagingDir: File,
         extractedDir: File,
         managedDir: File,
         part: PartDescriptor,
         journal: DownloadJournal,
         report: DownloadReport,
     ) {
-        val managedFile = managedPart(managedDir, part.fileName)
-        // Managed-file collision/adopt gate: NEVER overwrite. Match -> adopt, mismatch -> fail.
-        if (managedFile.exists()) {
-            if (managedFile.length() == part.sizeBytes && DownloadHashes.fileMatchesSha256(managedFile, part.sha256Hex)) {
+        val managedFile = File(managedDir, part.fileName)
+
+        // FINDING 2: competing destination first — exact match = adopt; anything else depends on
+        // ownership proof. A wrong-hash file is OURS to discard ONLY when the journal shows we
+        // were mid-publication (PUBLISHING) — i.e. an interrupted copy, recoverable. Otherwise it
+        // is a pre-existing/foreign file: collision-failure, NEVER overwritten or deleted.
+        fun adoptIfExact(destination: File): Boolean {
+            if (destination.isFile &&
+                destination.length() == part.sizeBytes &&
+                DownloadHashes.fileMatchesSha256(destination, part.sha256Hex)
+            ) {
                 journal.markPart(part.fileName, PartState.MOVED)
                 report.partsAdopted += 1
                 at(DownloadCheckpoint.PART_MOVED)
-                return
+                return true
             }
-            throw IOException("managed tree collision for '${part.fileName}': refusing to overwrite")
+            return false
+        }
+        if (managedFile.exists()) {
+            if (adoptIfExact(managedFile)) return
+            if (journal.part(part.fileName) == PartState.PUBLISHING) {
+                // Our own interrupted publication (createFile claimed the name, the copy never
+                // verified). Under the per-book lock nothing else can own this file: discard and redo.
+                managedFile.delete()
+            } else {
+                throw IOException("managed tree collision for '${part.fileName}': refusing to overwrite")
+            }
         }
 
         val extractedFile = File(extractedDir, part.fileName)
         if (journal.part(part.fileName) == PartState.EXTRACTED && extractedFile.isFile) {
-            // Journal says EXTRACTED — but the journal is a hint, not truth. VERIFY the artifact
-            // (size + hash) before reusing it; a torn journal may claim EXTRACTED for a partial
-            // or tampered file, and moving garbage into the managed tree is not acceptable.
             if (extractedFile.length() == part.sizeBytes &&
                 DownloadHashes.fileMatchesSha256(extractedFile, part.sha256Hex)
             ) {
@@ -319,25 +460,55 @@ class DownloadEngine(
             journal.markPart(part.fileName, PartState.EXTRACTED)
             at(DownloadCheckpoint.PART_EXTRACTED)
         }
-        // Commit into the managed tree (atomic move, NO replace: refusal on collision).
+
+        // FINDING 2 — ANDROID-SAFE PUBLICATION: Android forbids hard links (SELinux EACCES on
+        // createLink), so the native no-clobber primitive is CREATE_NEW (O_EXCL): the claim
+        // itself fails if the name exists, and the operation has NO replace capability. Protocol:
+        //   1. journal PUBLISHING (write-ahead: a wrong-hash dest is OURS only after this mark),
+        //   2. CREATE_NEW the destination (FileAlreadyExistsException = competitor won: adopt or
+        //      collision-failure, bytes preserved),
+        //   3. copy the VERIFIED bytes from staging into the claimed file + fsync,
+        //   4. re-verify size + hash, then journal MOVED.
+        // A crash between 2 and 4 leaves a partial file that recovery recognizes as ours (journal
+        // still PUBLISHING) and discards/redoes. Atomic visibility is not provided by CREATE_NEW
+        // (a reader could see a partial file pre-MOVED); the journal is the visibility gate, and
+        // this weaker-than-rename visibility is documented. External non-engine tampering during
+        // the copy window is outside the threat model (single-owner directories + per-book lock).
+        journal.markPart(part.fileName, PartState.PUBLISHING)
+        at(DownloadCheckpoint.PART_PUBLISHING)
         try {
-            Files.move(
-                extractedFile.toPath(),
-                managedFile.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
+            java.nio.channels.FileChannel
+                .open(
+                    managedFile.toPath(),
+                    java.nio.file.StandardOpenOption.CREATE_NEW,
+                    java.nio.file.StandardOpenOption.WRITE,
+                ).use { out ->
+                    java.nio.file.Files
+                        .newByteChannel(
+                            extractedFile.toPath(),
+                            java.nio.file.StandardOpenOption.READ,
+                        ).use { source -> out.transferFrom(source, 0, Long.MAX_VALUE) }
+                    out.force(true)
+                }
+        } catch (exists: java.nio.file.FileAlreadyExistsException) {
+            // A competitor claimed the name between our adopt-check and the O_EXCL claim.
+            if (adoptIfExact(managedFile)) return
+            throw IOException(
+                "managed tree collision for '${part.fileName}': refusing to overwrite",
+                exists,
             )
-        } catch (fileAlreadyExists: java.nio.file.FileAlreadyExistsException) {
-            if (managedFile.length() == part.sizeBytes && DownloadHashes.fileMatchesSha256(managedFile, part.sha256Hex)) {
-                journal.markPart(part.fileName, PartState.MOVED)
-                report.partsAdopted += 1
-                return
-            }
-            throw IOException("managed tree collision for '${part.fileName}': refusing to overwrite", fileAlreadyExists)
         }
-        if (Files.isSymbolicLink(managedFile.toPath())) {
+        if (managedFile.length() != part.sizeBytes ||
+            !DownloadHashes.fileMatchesSha256(managedFile, part.sha256Hex)
+        ) {
+            managedFile.delete()
+            throw IOException("publication verification failed for '${part.fileName}'")
+        }
+        if (Files.isSymbolicLink(managedFile.toPath()) || Files.isSymbolicLink(extractedFile.toPath())) {
             Files.deleteIfExists(managedFile.toPath())
-            throw IOException("extracted member materialized as a symlink — rejected")
+            throw IOException("published member is a symlink — rejected")
         }
+        Files.deleteIfExists(extractedFile.toPath())
         journal.markPart(part.fileName, PartState.MOVED)
         report.partsCommitted += 1
         at(DownloadCheckpoint.PART_MOVED)
@@ -378,7 +549,6 @@ class DownloadEngine(
                             }
                         }
                     }
-                    // Inflate-ratio guard: cheap guard against 1000:1 compression bombs.
                     val compressed = entry.compressedSize
                     if (compressed > 0 && inflated > compressed * ArchiveSafetyLimits.MAX_INFLATE_RATIO) {
                         Files.deleteIfExists(tmp.toPath())
@@ -411,11 +581,6 @@ class DownloadEngine(
         }
     }
 
-    private fun managedPart(
-        managedDir: File,
-        fileName: String,
-    ): File = File(managedDir, fileName)
-
     /** Deletes ONLY regular files/dirs the engine created inside [dir]; refuses to follow links. */
     private fun deleteOnlyInside(dir: File) {
         if (!dir.isDirectory) return
@@ -433,7 +598,7 @@ class DownloadEngine(
     }
 
     private fun validateBookId(bookId: String) {
-        val parsed = runCatching { java.util.UUID.fromString(bookId) }.getOrNull()
+        val parsed = runCatching { UUID.fromString(bookId) }.getOrNull()
         require(parsed != null && parsed.toString() == bookId) { "book id must be a canonical UUID" }
     }
 
@@ -442,5 +607,8 @@ class DownloadEngine(
         const val JOURNAL_FILE_NAME = "download.journal"
         const val COMPLETION_MARKER_NAME = "download-v1.complete"
         const val MARKER_CONTENT = "audio-ape download vertical slice v1 complete"
+
+        /** FINDING 2: process-wide per-book locks (cross-engine-instance coordination). */
+        val LOCKS = ConcurrentHashMap<String, Any>()
     }
 }

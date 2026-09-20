@@ -24,14 +24,7 @@ class DownloadEngineCrashMatrixTest {
         for (checkpoint in DownloadCheckpoint.entries) {
             val root = tmp.newFolder("cp-${checkpoint.name}")
             val fixture = DownloadFixtures.syntheticBook(tmp.newFolder("src-${checkpoint.name}"))
-            val request =
-                ResolvedDownloadRequest(
-                    fixture.manifest.bookId,
-                    fixture.manifest.displayTitle,
-                    DownloadSource { fixture.zipFile.inputStream() },
-                    fixture.archiveSizeBytes,
-                    fixture.archiveSha256Hex,
-                )
+            val request = DownloadFixtures.fixtureRequest(fixture)
             val committer = MemoryCommitter()
 
             val crashing = DownloadEngine(root, committer)
@@ -70,11 +63,14 @@ class DownloadEngineCrashMatrixTest {
                 File(root, "${fixture.manifest.bookId}/download-v1.complete").isFile,
             )
             val staging = File(root, "${fixture.manifest.bookId}/staging")
-            assertTrue("[$checkpoint] staging must be empty", !staging.exists() || staging.listFiles().orEmpty().isEmpty())
+            assertTrue(
+                "[$checkpoint] staging must be empty, found: ${staging.listFiles().orEmpty().map { it.name }}",
+                !staging.exists() || staging.listFiles().orEmpty().isEmpty(),
+            )
             assertEquals(
                 "[$checkpoint] committed parts in the record",
                 fixture.partContents.size,
-                committer.committed[0].second.size,
+                committer.committed[0].parts.size,
             )
         }
     }
@@ -84,14 +80,7 @@ class DownloadEngineCrashMatrixTest {
         val root = tmp.newFolder("root")
         val fixture = DownloadFixtures.syntheticBook(tmp.newFolder("src"))
         val committer = MemoryCommitter()
-        val request =
-            ResolvedDownloadRequest(
-                fixture.manifest.bookId,
-                fixture.manifest.displayTitle,
-                DownloadSource { fixture.zipFile.inputStream() },
-                fixture.archiveSizeBytes,
-                fixture.archiveSha256Hex,
-            )
+        val request = DownloadFixtures.fixtureRequest(fixture)
         val engine = DownloadEngine(root, committer)
         assertTrue(engine.run(request).succeeded)
 
@@ -109,14 +98,7 @@ class DownloadEngineCrashMatrixTest {
         val root = tmp.newFolder("root")
         val fixture = DownloadFixtures.syntheticBook(tmp.newFolder("src"))
         val committer = MemoryCommitter()
-        val request =
-            ResolvedDownloadRequest(
-                fixture.manifest.bookId,
-                fixture.manifest.displayTitle,
-                DownloadSource { fixture.zipFile.inputStream() },
-                fixture.archiveSizeBytes,
-                fixture.archiveSha256Hex,
-            )
+        val request = DownloadFixtures.fixtureRequest(fixture)
         val engine = DownloadEngine(root, committer)
         assertTrue(engine.run(request).succeeded)
 
