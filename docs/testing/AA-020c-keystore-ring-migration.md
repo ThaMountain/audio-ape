@@ -89,6 +89,52 @@ AGP version), unrelated to test outcomes and distinct from the AA-015 am-crash h
 Guidance: run connected suites on ONE device at a time locally (disconnect the phone for
 emulator runs), and read the per-device XMLs as the evidence.
 
+## Review hardening round 2 (2026-09-20, migration finalization review)
+
+Follow-up review asks addressed with code + tests (branch `aa/020c-hardening`, PR #15):
+
+**1. DONE is now a recovery state, not an unconditional return.** On entry, a DONE digest is
+re-verified: final must exist AND decrypt under the existing OS key → then any leftover
+`*.bak-migrating` / `*.tmp-migrating` is deleted and only then does the digest return. If the
+final is missing/corrupt with a backup + master present → restore → replay to PENDING. If
+neither final nor backup exists → EXPLICIT failure, nothing deleted. Border case closed: a DONE
+digest whose final AND backup both vanished (invisible to file discovery) is caught at the
+finish gate as an unverifiable claim and blocks master deletion.
+
+**2. migrateAll() is idempotent via a versioned completion marker**. `vault-keystore-migration-v1.complete`
+is created LAST (after every final verifies, no backups/temps, master deleted, journal
+discarded). Re-entry with a clean marker → verified no-op (`alreadyComplete=true`, zero
+migrations/re-keying, no key minting, no master recreation). Marker + stray backup/temp/master
+→ explicit inconsistent-state failure, never a silent continue. The narrow crash window
+(master deleted, marker not yet written) SELF-HEALS: files that fail legacy decryption but
+verify under an existing OS key are adopted as DONE without re-keying.
+
+**3. State-machine invariants explicit in code + tests** (PENDING / REPLACED_UNVERIFIED /
+DONE / GLOBAL COMPLETE), with durability order "redundant recoverable data over early
+deletion".
+
+**4. Crash matrix — every destructive transition fault-injected.** A `MigrationCheckpoint`
+seam + `SimulatedCrash` lets tests deterministically abort at all 13 named points (temp
+created/verified, journal REPLACED_UNVERIFIED, original→backup, temp→final, final verified,
+journal DONE, before/after backup delete, before/after master delete, before/after marker
+create). For EVERY point, a fresh migrator converges to exactly one safe state: fully migrated
+and readable under the OS key (master gone, marker present, zero residue) — and the master is
+never deleted while a live backup remains. Plus targeted DONE-recovery tests (leftover backup,
+missing final, corrupt final) and the no-marker self-heal test. **15 migrator tests total.**
+
+**5. CI now enforces every module.** Workflow runs `:core:model:test`,
+`:core:database:testDebugUnitTest`, `:core:storage:testDebugUnitTest`, `:plugin:protocol:test`,
+`:plugin:fixtures:test`, `:plugin:host:testDebugUnitTest`, `:app:testDebugUnitTest` (plus
+spotlessCheck / assembleDebug / lintDebug), and uploads all module test reports on failure.
+Real totals this exposed: **173 tests / 0 failures across all 7 modules** (the earlier
+"46-test" aggregate was under-measuring — it only globbed `testDebugUnitTest` outputs).
+
+**6. AndroidKeyRing design untouched** (strict semantics, provider-generated IV, fresh-instance
+reads, deleteEntry revocation, failures propagate).
+
+Verification evidence: 173/0 headless, spotless + lint clean, device suite 4/4 PASS on the
+emulator (incl. the hardened migration E2E), all tests synthetic (no real user credentials).
+
 ## Migration protocol (no-loss guarantee, final form)
 
 1. Per plugin identity (final `vault.<digest>.bin` OR leftover `*.bak-migrating`):
