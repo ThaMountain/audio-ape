@@ -58,10 +58,13 @@ class VaultKeystoreSmokeTest {
             String(bytes = onDisk, charset = StandardCharsets.UTF_8).contains("plug1n"),
         )
 
-        // Master key exists, is exactly the documented size, and is app-private (in the vault dir).
-        val masterKeyFile = File(vaultDirectory, FileBackedKeyRing.MASTER_KEY_FILE_NAME)
-        assertTrue("vault-master.key must exist after first store", masterKeyFile.exists())
-        assertEquals("master key must be a 32-byte AES-256 key", 32L, Files.readAllBytes(masterKeyFile.toPath()).size.toLong())
+        // OS custody: a FRESH vault instance (fresh KeyStore + load) must still read the same
+        // credential — proves the OS key persists across instances.
+        val freshVault = PluginCredentialVault(vaultDirectory)
+        val reRead = freshVault.read(PLUGIN_A, CREDENTIAL)
+        assertTrue("fresh-instance read must succeed through the OS ring", reRead is VaultSuccess)
+        val reReadPlaintext = requireNotNull((reRead as VaultSuccess).value)
+        assertEquals(secret.toList(), reReadPlaintext.toList())
 
         assertTrue(vault.delete(PLUGIN_A, CREDENTIAL) is VaultSuccess)
         assertTrue("deleted credential must read back as NOT_FOUND", vault.read(PLUGIN_A, CREDENTIAL) is VaultNotFound)
