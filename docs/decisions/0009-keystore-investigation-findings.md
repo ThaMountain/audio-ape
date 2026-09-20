@@ -1,6 +1,10 @@
 # ADR-0009 — Android Keystore AA-020b Investigation Findings (OS Keystore REOPENED)
 
-**Status:** Findings (2026-09-19) · **Owner:** Nick · **Ticket:** AA-020b · **Branch:** `aa/020b-keystore-investigation`
+**Status:** RESOLVED by AA-020c (2026-09-20) — the verified sequence is now the production
+`AndroidKeyRing`, with a no-loss `VaultKeyMigrator` and real `deleteEntry` revocation. See
+`docs/testing/AA-020c-keystore-ring-migration.md`. The investigation below remains authoritative
+for WHY the sequence works and the exact API contract.
+**Owner:** Nick · **Ticket:** AA-020b (+ AA-020c implementation) · **Branch:** `aa/020b-keystore-investigation`
 **Scope:** INVESTIGATION + EVIDENCE ONLY. No migration/fallback code written, no vault
 (`:plugin:host`) or `FileBackedKeyRing`/`VaultKeyRing` modified, no existing tests touched,
 nothing pushed or merged. This ADR records the verdict for owner review before ANY security

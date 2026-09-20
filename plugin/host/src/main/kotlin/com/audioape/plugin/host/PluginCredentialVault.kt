@@ -50,7 +50,7 @@ import kotlin.ByteArray
  */
 class PluginCredentialVault(
     private val vaultDirectory: java.io.File,
-    private val keystoreProvider: (scope: VaultKeyRing.Scope) -> VaultKeyRing = { FileBackedKeyRing(vaultDirectory) },
+    private val keystoreProvider: (scope: VaultKeyRing.Scope) -> VaultKeyRing = { AndroidKeyRing() },
 ) {
     /** Creates (or opens) a keystore key for [pluginId] and stores [secret] under [credentialId]. */
     fun store(

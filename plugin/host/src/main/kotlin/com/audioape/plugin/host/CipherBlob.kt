@@ -1,7 +1,6 @@
 package com.audioape.plugin.host
 
 import java.nio.charset.StandardCharsets
-import java.security.SecureRandom
 import java.util.Arrays
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
@@ -31,14 +30,18 @@ data class CipherBlob(
     }
 
     companion object {
-        /** Encrypts [plaintext] under [key]; the plugin digest becomes GCM AAD. */
+        /**
+         * Encrypts [plaintext] under [key]; the plugin digest becomes GCM AAD. The IV is
+         * provider-generated (AA-020c): Android Keystore-custodied keys REJECT caller-provided
+         * IVs on ENCRYPT ("Caller-provided IV not permitted"), so we init without an IV and
+         * store the IV the provider used ([Cipher.iv]).
+         */
         fun encrypt(
             key: SecretKey,
             plaintext: ByteArray,
             pluginDigest: String,
         ): CipherBlob {
-            val iv = randomIv()
-            val tagged = seal(Cipher.ENCRYPT_MODE, key, iv, plaintext, pluginDigest)
+            val (iv, tagged) = seal(Cipher.ENCRYPT_MODE, key, null, plaintext, pluginDigest)
             return splitTagged(iv, tagged)
         }
 
@@ -58,17 +61,11 @@ data class CipherBlob(
             System.arraycopy(blob.ciphertext, 0, tagged, 0, blob.ciphertext.size)
             System.arraycopy(blob.tag, 0, tagged, blob.ciphertext.size, blob.tag.size)
             return try {
-                seal(Cipher.DECRYPT_MODE, key, blob.iv, tagged, pluginDigest)
+                val (_, tagged) = seal(Cipher.DECRYPT_MODE, key, blob.iv, tagged, pluginDigest)
+                tagged
             } catch (ignored: Exception) {
                 null
             }
-        }
-
-        /** 12 random bytes per store; generated here in one place, not in the blob init. */
-        private fun randomIv(): ByteArray {
-            val iv = ByteArray(VaultLimits.IV_BYTES)
-            SecureRandom().nextBytes(iv)
-            return iv
         }
 
         /** Splits the GCM `ciphertext || tag` output that JCA doFinal returns. */
@@ -88,16 +85,22 @@ data class CipherBlob(
         private fun seal(
             mode: Int,
             key: SecretKey,
-            iv: ByteArray,
+            iv: ByteArray?,
             input: ByteArray,
             pluginDigest: String,
-        ): ByteArray {
+        ): Pair<ByteArray, ByteArray> {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(mode, key, GCMParameterSpec(VaultLimits.TAG_BITS, iv))
+            if (iv == null) {
+                // Provider generates the IV (mandatory for Android Keystore keys on ENCRYPT).
+                cipher.init(mode, key)
+            } else {
+                cipher.init(mode, key, GCMParameterSpec(VaultLimits.TAG_BITS, iv))
+            }
             cipher.updateAAD(pluginDigest.toByteArray(StandardCharsets.UTF_8))
-            // In decryption mode JCA verifies the authenticator and throws on mismatch;
-            // in encryption mode the returned bytes are `ciphertext || tag`.
-            return cipher.doFinal(input)
+            // Decryption: JCA verifies the authenticator and throws on mismatch (caller IV
+            // permitted); encryption: returned bytes are `ciphertext || tag`, and [Cipher.iv]
+            // holds the provider-generated IV to persist. first = used IV, second = output.
+            return cipher.iv to cipher.doFinal(input)
         }
     }
 }

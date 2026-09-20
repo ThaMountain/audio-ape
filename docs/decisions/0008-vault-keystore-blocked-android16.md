@@ -1,5 +1,9 @@
 # ADR-0008 — Android Keystore OS-backed plugin vault: BLOCKED on Android 16/API 36 (file-backed fallback)
 
+**Status:** OVERTAKEN by ADR-0009/AA-020c at the owner's direction (2026-09-19/20) — the block
+was incorrect API usage, not a platform defect; `AndroidKeyRing` (OS custody) is now the
+production key ring and `FileBackedKeyRing` migration-only. **Retained for history.**
+
 **Status:** Accepted (2026-09-19 — with a consciously accepted, documented downgrade) · **Owner:** Nick · **Ticket:** AA-020
 
 ## Context
