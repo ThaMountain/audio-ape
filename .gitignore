@@ -37,3 +37,6 @@ audiobooks/
 # --- Generated assets / logs ---
 logs/
 *.log
+
+# local test credentials — never commit
+.creds/
