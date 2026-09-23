@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- AA-021: debug-only overlay adds INTERNET + a loopback-only cleartext allowance so the
+     DOWNLOAD E2E can fetch the synthetic multipart archive from a localhost HTTP server.
+     The production app does NOT request INTERNET and has NO cleartext relaxation. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <!-- Keeps the instrumentation runner alive while AA-015 kills the playback process. -->
-        <service
-            android:name=".playback.AudioApePlaybackService"
-            android:process=":playback" />
-    </application>
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application android:networkSecurityConfig="@xml/network_security_config_debug" />
+
 </manifest>
